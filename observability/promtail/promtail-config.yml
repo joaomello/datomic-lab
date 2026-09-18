@@ -1,0 +1,219 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+  log_level: warn
+
+positions:
+  filename: /tmp/promtail-positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: datomic
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: datomic
+          __path__: /datomic-logs/*.log
+
+    pipeline_stages:
+      # ── 1. Parse the log line structure ───────────────────────────────────
+      # Format: TIMESTAMP LEVEL  THREAD    LOGGER - MESSAGE
+      # e.g.:   2024-12-19 11:10:02.777 INFO  default    datomic.process-monitor - {...}
+      - regex:
+          expression: '^(?P<ts>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+)\s+(?P<level>\w+)\s+\S+\s+(?P<logger>\S+) - (?P<message>.*)$'
+
+      # ── 2. Extract :event value from EDN payload ──────────────────────────
+      # Captures both simple keywords (:event :metrics) and namespaced (:event :transactor/start)
+      - regex:
+          source: message
+          expression: ':event :(?P<event>[a-zA-Z][a-zA-Z0-9/_-]*)'
+
+      # ── 3. Extract top-level numeric fields from :event :metrics lines ────
+      # Simple numeric fields (e.g. :AvailableMB 932.0)
+      - regex:
+          source: message
+          expression: ':AvailableMB (?P<available_mb>\d+\.?\d*)'
+      - regex:
+          source: message
+          expression: ':ObjectCacheCount (?P<object_cache_count>\d+)'
+      - regex:
+          source: message
+          expression: ':RemotePeers \{:lo \d+, :hi \d+, :sum \d+, :count (?P<remote_peers_count>\d+)\}'
+
+      # Nested map fields — extract :hi (max in interval) and :sum, :count for rate
+      - regex:
+          source: message
+          expression: ':GcPauseMsec \{:lo \d+, :hi (?P<gc_pause_msec_hi>\d+), :sum (?P<gc_pause_msec_sum>\d+), :count (?P<gc_pause_msec_count>\d+)\}'
+      - regex:
+          source: message
+          expression: ':HeartbeatMsec \{:lo \d+, :hi (?P<heartbeat_msec_hi>\d+), :sum (?P<heartbeat_msec_sum>\d+), :count (?P<heartbeat_msec_count>\d+)\}'
+      - regex:
+          source: message
+          expression: ':MemoryIndexMB \{:lo \d+\.?\d*, :hi (?P<memory_index_mb_hi>\d+\.?\d*), :sum \d+\.?\d*, :count (?P<memory_index_mb_count>\d+)\}'
+      - regex:
+          source: message
+          expression: ':TransactionMsec \{:lo \d+\.?\d*, :hi (?P<transaction_msec_hi>\d+\.?\d*), :sum (?P<transaction_msec_sum>\d+\.?\d*), :count (?P<transaction_msec_count>\d+)\}'
+      - regex:
+          source: message
+          expression: ':TransactionBatch \{:lo \d+\.?\d*, :hi (?P<transaction_batch_hi>\d+\.?\d*), :sum (?P<transaction_batch_sum>\d+\.?\d*), :count (?P<transaction_batch_count>\d+)\}'
+      - regex:
+          source: message
+          expression: ':StorageGetMsec \{:lo \d+\.?\d*, :hi (?P<storage_get_msec_hi>\d+\.?\d*), :sum (?P<storage_get_msec_sum>\d+\.?\d*), :count (?P<storage_get_msec_count>\d+)\}'
+      - regex:
+          source: message
+          expression: ':StoragePutMsec \{:lo \d+\.?\d*, :hi (?P<storage_put_msec_hi>\d+\.?\d*), :sum (?P<storage_put_msec_sum>\d+\.?\d*), :count (?P<storage_put_msec_count>\d+)\}'
+      - regex:
+          source: message
+          expression: ':IndexingJobMsec \{:lo \d+\.?\d*, :hi (?P<indexing_job_msec_hi>\d+\.?\d*), :sum (?P<indexing_job_msec_sum>\d+\.?\d*), :count (?P<indexing_job_msec_count>\d+)\}'
+
+      # ── 4. Extract io-stats and tx-stats from :event :tx/process lines ──────
+      # (datomic.transaction logger — fields absent on other log lines, no-ops elsewhere)
+
+      # io-stats top-level (first :io-context / :api-ms in line = from :io-stats, not :pf-stats)
+      - regex:
+          source: message
+          expression: ':io-context :(?P<io_context>[^\s,}]+)'
+      - regex:
+          source: message
+          expression: ':api-ms (?P<io_api_ms>[0-9.]+)'
+
+      # io-stats.reads (first occurrence = tx read path, not prefetch)
+      - regex:
+          source: message
+          expression: ':inflight-lookup-ms (?P<io_inflight_lookup_ms>[0-9.]+)'
+      - regex:
+          source: message
+          expression: ':deserialize-ms (?P<io_deserialize_ms>[0-9.]+)'
+      - regex:
+          source: message
+          expression: ':dev-ms (?P<io_dev_ms>[0-9.]+)'
+
+      # tx-stats
+      - regex:
+          source: message
+          expression: ':tx-fn-ms (?P<tx_fn_ms>[0-9.]+)'
+      - regex:
+          source: message
+          expression: ':ucheck-tx-ms (?P<tx_ucheck_ms>[0-9.]+)'
+      - regex:
+          source: message
+          expression: ':ucheck-pf-ms (?P<tx_ucheck_pf_ms>[0-9.]+)'
+      - regex:
+          source: message
+          expression: ':ucheck-ct (?P<tx_ucheck_ct>[0-9]+)'
+      - regex:
+          source: message
+          expression: ':dedup-tx-ms (?P<tx_dedup_ms>[0-9.]+)'
+      - regex:
+          source: message
+          expression: ':dedup-pf-ms (?P<tx_dedup_pf_ms>[0-9.]+)'
+      - regex:
+          source: message
+          expression: ':dedup-ct (?P<tx_dedup_ct>[0-9]+)'
+      - regex:
+          source: message
+          expression: ':comp-tx-ms (?P<tx_comp_ms>[0-9.]+)'
+      - regex:
+          source: message
+          expression: ':comp-pf-ms (?P<tx_comp_pf_ms>[0-9.]+)'
+      - regex:
+          source: message
+          expression: ':comp-ct (?P<tx_comp_ct>[0-9]+)'
+      - regex:
+          source: message
+          expression: ':res-tx-ms (?P<tx_res_ms>[0-9.]+)'
+      - regex:
+          source: message
+          expression: ':res-pf-ms (?P<tx_res_pf_ms>[0-9.]+)'
+      - regex:
+          source: message
+          expression: ':res-ct (?P<tx_res_ct>[0-9]+)'
+      - regex:
+          source: message
+          expression: ':dup-datoms (?P<tx_dup_datoms>[0-9]+)'
+      - regex:
+          source: message
+          expression: ':considered-datoms (?P<tx_considered_datoms>[0-9]+)'
+
+      # top-level tx timing
+      - regex:
+          source: message
+          expression: ':msec (?P<tx_msec>[0-9.]+)'
+      - regex:
+          source: message
+          expression: ':apply-msec (?P<tx_apply_ms>[0-9.]+)'
+      - regex:
+          source: message
+          expression: ':datom-count (?P<tx_datom_count>[0-9]+)'
+
+      # ── 5. Promote high-cardinality fields as structured metadata ─────────
+      # (labels kept low-cardinality: level, event, logger, io_context)
+      - structured_metadata:
+          available_mb:
+          object_cache_count:
+          remote_peers_count:
+          gc_pause_msec_hi:
+          gc_pause_msec_sum:
+          gc_pause_msec_count:
+          heartbeat_msec_hi:
+          heartbeat_msec_sum:
+          heartbeat_msec_count:
+          memory_index_mb_hi:
+          memory_index_mb_count:
+          transaction_msec_hi:
+          transaction_msec_sum:
+          transaction_msec_count:
+          transaction_batch_hi:
+          transaction_batch_sum:
+          transaction_batch_count:
+          storage_get_msec_hi:
+          storage_get_msec_sum:
+          storage_get_msec_count:
+          storage_put_msec_hi:
+          storage_put_msec_sum:
+          storage_put_msec_count:
+          indexing_job_msec_hi:
+          indexing_job_msec_sum:
+          indexing_job_msec_count:
+          io_api_ms:
+          io_inflight_lookup_ms:
+          io_deserialize_ms:
+          io_dev_ms:
+          tx_fn_ms:
+          tx_ucheck_ms:
+          tx_ucheck_pf_ms:
+          tx_ucheck_ct:
+          tx_dedup_ms:
+          tx_dedup_pf_ms:
+          tx_dedup_ct:
+          tx_comp_ms:
+          tx_comp_pf_ms:
+          tx_comp_ct:
+          tx_res_ms:
+          tx_res_pf_ms:
+          tx_res_ct:
+          tx_dup_datoms:
+          tx_considered_datoms:
+          tx_msec:
+          tx_apply_ms:
+          tx_datom_count:
+
+      # ── 6. Low-cardinality labels ─────────────────────────────────────────
+      - labels:
+          level:
+          event:
+          logger:
+          io_context:
+
+      # ── 7. Use the log line timestamp, not ingestion time ─────────────────
+      # Datomic log timestamps carry no timezone — they're the JVM's local
+      # time. The transactor must be started with -Duser.timezone=UTC (see
+      # start.sh) so this fixed "UTC" location is correct on every machine,
+      # regardless of the attendee's own timezone.
+      - timestamp:
+          source: ts
+          format: "2006-01-02 15:04:05.000"
+          location: "UTC"

@@ -1,0 +1,627 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "graphTooltip": 1,
+  "links": [
+    {
+      "icon": "external link",
+      "targetBlank": true,
+      "title": "Datomic Console",
+      "type": "link",
+      "url": "http://localhost:8080/browse"
+    }
+  ],
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "title": "Memory",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Free heap in the peer JVM, as Datomic sees it.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "decmbytes"
+        }
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 1
+      },
+      "id": 2,
+      "targets": [
+        {
+          "expr": "datomic_peer_available_mb",
+          "legendFormat": "available"
+        }
+      ],
+      "title": "Available Memory (MB)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Segments held in this peer's object cache. Grows until it reaches -Ddatomic.objectCacheMax (default 50% of heap).\n\nFlat at a low number on a quiet lab database is normal: a query over recently written data is answered from the memory index and never loads a segment.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 1
+      },
+      "id": 3,
+      "targets": [
+        {
+          "expr": "datomic_peer_object_cache_count",
+          "legendFormat": "segments"
+        }
+      ],
+      "title": "Object Cache Count",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 8
+      },
+      "id": 4,
+      "title": "Reads",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Share of segment lookups served from memory. The single number that decides whether a query touches storage.\n\nWhy `_2`: Datomic reports :ObjectCacheCount (segments cached) and :ObjectCache (cache hits) in the same report, and both normalize to ..._object_cache_count. The exporter gives the plain name to the scalar and moves the map to ..._2 rather than letting them share one gauge.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "max": 1,
+          "min": 0,
+          "unit": "percentunit"
+        }
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 6,
+        "x": 0,
+        "y": 9
+      },
+      "id": 5,
+      "targets": [
+        {
+          "expr": "datomic_peer_object_cache_2_sum / clamp_min(datomic_peer_object_cache_2_count, 1)",
+          "legendFormat": "hit rate"
+        }
+      ],
+      "title": "Object Cache Hit Rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "The gap between the two lines is what went to storage.\n\nAveraged over the $window range selected at the top of the dashboard. Datomic reports once a minute, so short windows can contain no step at all.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "ops"
+        }
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 6,
+        "x": 6,
+        "y": 9
+      },
+      "id": 6,
+      "targets": [
+        {
+          "expr": "rate(datomic_peer_object_cache_2_count_counter_total[$window])",
+          "legendFormat": "lookups"
+        },
+        {
+          "expr": "rate(datomic_peer_object_cache_2_sum_counter_total[$window])",
+          "legendFormat": "hits"
+        }
+      ],
+      "title": "Cache Lookup Rate (lookups/s)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Turning a fetched segment into usable data. Paid on a cache miss, on top of the read itself.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "ms"
+        }
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 6,
+        "x": 12,
+        "y": 9
+      },
+      "id": 7,
+      "targets": [
+        {
+          "expr": "datomic_peer_deserialize_msec_hi",
+          "legendFormat": "max"
+        },
+        {
+          "expr": "datomic_peer_deserialize_msec_sum / clamp_min(datomic_peer_deserialize_msec_count, 1)",
+          "legendFormat": "avg"
+        }
+      ],
+      "title": "Segment Deserialize (ms)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Datomic prefetches segments it expects to need. A queue that stays above zero means prefetching is behind the query.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 6,
+        "x": 18,
+        "y": 9
+      },
+      "id": 8,
+      "targets": [
+        {
+          "expr": "datomic_peer_pool_read_ahead_active_hi",
+          "legendFormat": "active"
+        },
+        {
+          "expr": "datomic_peer_pool_read_ahead_queued_hi",
+          "legendFormat": "queued"
+        }
+      ],
+      "title": "Read-Ahead Pool",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
+      "id": 9,
+      "title": "Storage",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Only cache misses get here. A peer never writes to storage, so there is no write counterpart to this panel.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "ms"
+        }
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 17
+      },
+      "id": 10,
+      "targets": [
+        {
+          "expr": "datomic_peer_storage_get_msec_hi",
+          "legendFormat": "max"
+        },
+        {
+          "expr": "datomic_peer_storage_get_msec_sum / clamp_min(datomic_peer_storage_get_msec_count, 1)",
+          "legendFormat": "avg"
+        }
+      ],
+      "title": "Storage Read Latency (ms)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "Bps"
+        }
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 17
+      },
+      "id": 11,
+      "targets": [
+        {
+          "expr": "rate(datomic_peer_storage_get_bytes_sum_counter_total[$window])",
+          "legendFormat": "bytes/s"
+        }
+      ],
+      "title": "Storage Read Throughput (bytes/s)",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 24
+      },
+      "id": 12,
+      "title": "Peer ↔ transactor",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Time this peer spends absorbing each transaction report the transactor broadcasts. It is how far behind the peer's view of the database can drift.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "ms"
+        }
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 0,
+        "y": 25
+      },
+      "id": 13,
+      "targets": [
+        {
+          "expr": "datomic_peer_peer_accept_new_msec_hi",
+          "legendFormat": "max"
+        },
+        {
+          "expr": "datomic_peer_peer_accept_new_msec_sum / clamp_min(datomic_peer_peer_accept_new_msec_count, 1)",
+          "legendFormat": "avg"
+        }
+      ],
+      "title": "Accept New Tx Report (ms)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Reports this peer absorbed. Expect it to sit below the transactor's commit rate under steady load -- reports are coalesced when a peer is behind, and a freshly started peer reads low until its counter has a full rate window. Zero while the transactor is busy is the signal worth chasing.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "ops"
+        }
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 8,
+        "y": 25
+      },
+      "id": 14,
+      "targets": [
+        {
+          "expr": "rate(datomic_peer_peer_accept_new_msec_count_counter_total[$window])",
+          "legendFormat": "reports"
+        }
+      ],
+      "title": "Tx Reports Accepted (reports/s)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Reading the transaction log: at connect, and whenever the peer reads history. Mostly flat once connected.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "ms"
+        }
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 16,
+        "y": 25
+      },
+      "id": 15,
+      "targets": [
+        {
+          "expr": "datomic_peer_log_ingest_msec_hi",
+          "legendFormat": "max"
+        },
+        {
+          "expr": "datomic_peer_log_ingest_msec_sum / clamp_min(datomic_peer_log_ingest_msec_count, 1)",
+          "legendFormat": "avg"
+        }
+      ],
+      "title": "Transaction Log Ingest (ms)",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 32
+      },
+      "id": 16,
+      "title": "GC & JVM",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Share of wall-clock time this JVM spent collecting garbage.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "percentunit"
+        }
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 0,
+        "y": 33
+      },
+      "id": 17,
+      "targets": [
+        {
+          "expr": "rate(jvm_gc_collection_seconds_sum{job=\"datomic-peer\"}[$window])",
+          "legendFormat": "{{gc}}"
+        }
+      ],
+      "title": "GC Time",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "From the Prometheus hotspot collectors, not from Datomic. The job filter matters: the transactor exports jvm_* under the same names.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "bytes"
+        }
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 8,
+        "y": 33
+      },
+      "id": 18,
+      "targets": [
+        {
+          "expr": "jvm_memory_used_bytes{job=\"datomic-peer\", area=\"heap\"}",
+          "legendFormat": "heap"
+        }
+      ],
+      "title": "JVM Heap Used (bytes)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Whether Prometheus can scrape a peer right now. Every panel on this dashboard is empty when this reads down.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "red",
+                  "index": 0,
+                  "text": "down"
+                },
+                "1": {
+                  "color": "green",
+                  "index": 1,
+                  "text": "up"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 16,
+        "y": 33
+      },
+      "id": 19,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "expr": "up{job=\"datomic-peer\"}",
+          "legendFormat": "peer"
+        }
+      ],
+      "title": "Peer Connected",
+      "type": "stat"
+    }
+  ],
+  "refresh": "15s",
+  "schemaVersion": 39,
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": true,
+          "text": "5m",
+          "value": "5m"
+        },
+        "description": "Range window for every rate() and *_over_time() on this dashboard. Datomic reports metrics once a minute, so 5m is the shortest window that reliably contains a counter step -- anything shorter reads flat zero whenever a report lands outside it.",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Window",
+        "multi": false,
+        "name": "window",
+        "options": [
+          {
+            "selected": true,
+            "text": "5m",
+            "value": "5m"
+          },
+          {
+            "selected": false,
+            "text": "10m",
+            "value": "10m"
+          },
+          {
+            "selected": false,
+            "text": "30m",
+            "value": "30m"
+          },
+          {
+            "selected": false,
+            "text": "1h",
+            "value": "1h"
+          }
+        ],
+        "query": "5m,10m,30m,1h",
+        "skipUrlSync": false,
+        "type": "custom"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "title": "Peer Metrics",
+  "uid": "datomic-peer",
+  "version": 3
+}

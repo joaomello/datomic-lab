@@ -1,0 +1,17 @@
+{:paths ["src"]
+ :deps  {org.clojure/clojure    {:mvn/version "1.12.5"}
+         org.clojure/data.csv   {:mvn/version "1.1.1"}
+         com.datomic/peer       {:mvn/version "1.0.7705"}
+         lab/metrics-exporter   {:local/root "../metrics-exporter"}
+         org.slf4j/slf4j-simple {:mvn/version "2.0.17"}}
+
+ :aliases
+ {:dev
+  {:jvm-opts ["-Ddatomic.metricsCallback=lab.datomic-metrics/metrics"
+              "-Ddatomic.metrics.prefix=datomic_peer_"
+              "-Ddatomic.metrics.port=9101"
+              "-Duser.timezone=UTC"
+              "--enable-native-access=ALL-UNNAMED"
+              "-Dorg.slf4j.simpleLogger.defaultLogLevel=warn"
+              "-Dorg.slf4j.simpleLogger.log.datomic.process-monitor=info"]
+   }}}
