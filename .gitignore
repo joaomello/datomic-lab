@@ -1,0 +1,45 @@
+# OS
+.DS_Store
+
+# Node
+node_modules/
+
+# ClojureScript / Shadow-cljs
+.shadow-cljs/
+.cpcache/
+resources/public/js/cljs-runtime/
+resources/public/js/main.js
+resources/public/js/manifest.edn
+
+# Clojure tooling
+.clj-kondo/.cache/
+.lsp/
+target/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.code-workspace
+
+# Claude Code / MCP
+.claude/
+.mcp.json
+opencode.json
+
+# Editor backup/swap files
+*~
+*.swp
+*.swo
+\#*\#
+.#*
+
+# REPL history
+.nrepl-port
+.rebel_readline_history
+.clj-kondo/
+
+# Local environment
+.env
+datomic-pro/
+.datomic/
