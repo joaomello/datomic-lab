@@ -248,6 +248,8 @@ Common settings are:
 | `DATOMIC_HOME` | Absolute path to an existing Datomic Pro installation |
 | `DATOMIC_VERSION` | Download version; defaults to `1.0.7705` |
 | `DATOMIC_DOWNLOAD=1` | Select download automatically when no installation is configured |
+| `DATOMIC_CLEAN=1` | Delete an existing `./datomic-pro` and download again instead of reusing it |
+| `DATOMIC_DOWNLOAD_DIR` | Absolute directory caching the downloaded ZIP; default is `.datomic/` |
 | `DATOMIC_COMPOSE` | Choose `docker compose` or `podman compose` explicitly |
 | `DATOMIC_TRANSACTOR_CONFIG` | Absolute path to another properties file; default is `config/transactor.properties` |
 | `DATOMIC_LOG_PATH` | Absolute directory mounted read-only for log collection; default is `$DATOMIC_HOME/log` |
