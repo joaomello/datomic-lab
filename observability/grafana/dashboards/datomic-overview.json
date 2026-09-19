@@ -901,7 +901,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(datomic_transactor_transaction_batch_sum_counter_total[$window])",
+          "expr": "rate(datomic_transactor_transaction_datoms_sum_counter_total[$window])",
           "legendFormat": "datoms/s",
           "refId": "A"
         }
@@ -1007,7 +1007,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "datomic_transactor_transaction_batch_sum",
+          "expr": "datomic_transactor_transaction_datoms_sum",
           "legendFormat": "sum",
           "refId": "A"
         }
@@ -1113,7 +1113,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "datomic_transactor_transaction_batch_sum / clamp_min(datomic_transactor_transaction_batch_count, 1)",
+          "expr": "datomic_transactor_transaction_datoms_sum / clamp_min(datomic_transactor_transaction_datoms_count, 1)",
           "legendFormat": "avg",
           "refId": "A"
         },
@@ -1122,7 +1122,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "datomic_transactor_transaction_batch_hi",
+          "expr": "datomic_transactor_transaction_datoms_hi",
           "legendFormat": "max",
           "refId": "B"
         }
@@ -1325,6 +1325,206 @@
             }
           ],
           "title": "Transaction Time Breakdown (avg ms per 1m)",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "description": "Datoms per minute that were submitted in transactions but had not changed and were deduplicated before committing, by io-context",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "bars",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "showValues": false,
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "normal"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 42
+          },
+          "id": 70,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "hideZeros": false,
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "pluginVersion": "13.1.2",
+          "targets": [
+            {
+              "datasource": {
+                "type": "loki",
+                "uid": "loki"
+              },
+              "direction": "backward",
+              "editorMode": "code",
+              "expr": "sum by (io_context) (sum_over_time({job=\"datomic\", event=\"tx/process\", io_context=~\".+\"} | tx_dup_datoms != `` | unwrap tx_dup_datoms [1m]))",
+              "interval": "1m",
+              "legendFormat": "{{io_context}}",
+              "queryType": "range",
+              "refId": "A"
+            }
+          ],
+          "title": "Redundant Datoms by IO-Context Per Minute",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "description": "Datoms per minute applied by committed transactions, by io-context",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "bars",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "showValues": false,
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "normal"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 50
+          },
+          "id": 71,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "hideZeros": false,
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "pluginVersion": "13.1.2",
+          "targets": [
+            {
+              "datasource": {
+                "type": "loki",
+                "uid": "loki"
+              },
+              "direction": "backward",
+              "editorMode": "code",
+              "expr": "sum by (io_context) (sum_over_time({job=\"datomic\", event=\"tx/process\", io_context=~\".+\"} | tx_datom_count != `` | unwrap tx_datom_count [1m]))",
+              "interval": "1m",
+              "legendFormat": "{{io_context}}",
+              "queryType": "range",
+              "refId": "A"
+            }
+          ],
+          "title": "Datom Count by IO-Context Per Minute",
           "type": "timeseries"
         }
       ],

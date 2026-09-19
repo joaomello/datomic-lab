@@ -61,6 +61,9 @@ scrape_configs:
           expression: ':TransactionBatch \{:lo \d+\.?\d*, :hi (?P<transaction_batch_hi>\d+\.?\d*), :sum (?P<transaction_batch_sum>\d+\.?\d*), :count (?P<transaction_batch_count>\d+)\}'
       - regex:
           source: message
+          expression: ':TransactionDatoms \{:lo \d+\.?\d*, :hi (?P<transaction_datoms_hi>\d+\.?\d*), :sum (?P<transaction_datoms_sum>\d+\.?\d*), :count (?P<transaction_datoms_count>\d+)\}'
+      - regex:
+          source: message
           expression: ':StorageGetMsec \{:lo \d+\.?\d*, :hi (?P<storage_get_msec_hi>\d+\.?\d*), :sum (?P<storage_get_msec_sum>\d+\.?\d*), :count (?P<storage_get_msec_count>\d+)\}'
       - regex:
           source: message
@@ -169,6 +172,9 @@ scrape_configs:
           transaction_batch_hi:
           transaction_batch_sum:
           transaction_batch_count:
+          transaction_datoms_hi:
+          transaction_datoms_sum:
+          transaction_datoms_count:
           storage_get_msec_hi:
           storage_get_msec_sum:
           storage_get_msec_count:

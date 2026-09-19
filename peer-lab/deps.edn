@@ -3,7 +3,8 @@
          org.clojure/data.csv   {:mvn/version "1.1.1"}
          com.datomic/peer       {:mvn/version "1.0.7705"}
          lab/metrics-exporter   {:local/root "../metrics-exporter"}
-         org.slf4j/slf4j-simple {:mvn/version "2.0.17"}}
+         org.slf4j/slf4j-simple {:mvn/version "2.0.17"}
+         io.github.nubank/morse {:git/tag "v2023.04.30.01" :git/sha "d99b09c"}}
 
  :aliases
  {:dev
