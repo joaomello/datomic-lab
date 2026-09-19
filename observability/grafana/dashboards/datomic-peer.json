@@ -623,5 +623,5 @@
   },
   "title": "Peer Metrics",
   "uid": "datomic-peer",
-  "version": 3
+  "version": 4
 }
