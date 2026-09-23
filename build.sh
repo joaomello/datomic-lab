@@ -119,6 +119,23 @@ download_datomic() {
   rm -rf "$staging"
 }
 
+# Datomic's bin/ scripts start with #!/bin/bash, which does not exist on NixOS
+# and similar systems, and they call each other directly (bin/transactor runs
+# bin/classpath), so invoking them through bash is not enough. Rewrite the
+# shebangs of the installation this repo manages; cat keeps the file modes.
+# Systems that have /bin/bash are left untouched.
+portable_shebangs() {
+  local script tmp
+  [[ -x /bin/bash ]] && return 0
+  for script in "$INSTALL_DIR"/bin/*; do
+    [[ -f "$script" && "$(head -1 "$script")" == '#!/bin/bash' ]] || continue
+    tmp="$(mktemp)"
+    { printf '#!/usr/bin/env bash\n'; tail -n +2 "$script"; } > "$tmp"
+    cat "$tmp" > "$script"
+    rm -f "$tmp"
+  done
+}
+
 selection=""
 case "${1-}" in
   -h|--help) usage; exit 0 ;;
@@ -147,6 +164,8 @@ fi
 if [[ "$choice" == download ]]; then download_datomic
 elif [[ -n "$choice" ]]; then DATOMIC_HOME="$choice"
 fi
+# Before installation(), which rejects #!/bin/bash scripts on such systems.
+if [[ "$DATOMIC_HOME" == "$INSTALL_DIR" ]]; then portable_shebangs; fi
 
 # The transactor properties file must already exist: by default that's this
 # repo's own config/transactor.properties, used in place; a custom

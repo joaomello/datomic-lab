@@ -180,6 +180,11 @@ installation() {
   [[ "$DATOMIC_HOME" == /* ]] || fail "Set DATOMIC_HOME in .env to an absolute path, or run ./build.sh to choose a path or download."
   [[ -x "$DATOMIC_HOME/bin/transactor" && -x "$DATOMIC_HOME/bin/console" && -x "$DATOMIC_HOME/bin/classpath" && -d "$DATOMIC_HOME/lib/console" && -f "$DATOMIC_HOME/VERSION" ]] ||
     fail "Not a complete Datomic Pro installation (including Console): $DATOMIC_HOME"
+  # build.sh rewrites these shebangs only in ./datomic-pro; an installation
+  # elsewhere belongs to the participant and is never edited.
+  if [[ ! -x /bin/bash && "$(head -1 "$DATOMIC_HOME/bin/transactor")" == '#!/bin/bash' ]]; then
+    fail "$DATOMIC_HOME/bin scripts use #!/bin/bash, which this system lacks. Rerun ./build.sh for ./datomic-pro, or fix them: sed -i '1s|^#!/bin/bash|#!/usr/bin/env bash|' \"$DATOMIC_HOME\"/bin/*"
+  fi
   DATOMIC_LOG_PATH="${DATOMIC_LOG_PATH:-$DATOMIC_HOME/log}"
   # Defaults to this repo's own file, used in place — edit it and restart to
   # pick up changes. Set DATOMIC_TRANSACTOR_CONFIG to use a different one.
