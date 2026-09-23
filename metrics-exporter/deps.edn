@@ -1,7 +1,7 @@
 {:paths ["src"]
- :deps {io.prometheus/prometheus-metrics-core {:mvn/version "1.4.1"}
-        io.prometheus/prometheus-metrics-instrumentation-jvm {:mvn/version "1.4.1"}
-        io.prometheus/prometheus-metrics-exporter-httpserver {:mvn/version "1.4.1"}}
+ :deps {io.prometheus/prometheus-metrics-core {:mvn/version "1.8.0"}
+        io.prometheus/prometheus-metrics-instrumentation-jvm {:mvn/version "1.8.0"}
+        io.prometheus/prometheus-metrics-exporter-httpserver {:mvn/version "1.8.0"}}
  :aliases
  {:build {:deps        {io.github.clojure/tools.build {:mvn/version "0.10.14"}}
           :ns-default  build}

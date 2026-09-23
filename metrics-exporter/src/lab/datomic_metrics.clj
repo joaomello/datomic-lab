@@ -248,6 +248,9 @@
       (warn-once! "metrics endpoint unavailable" t)))
   (record-report! m))
 
+(defn add-doc [db eid doc]
+  [[:db/add eid :db/doc doc]])
+
 (comment
   (record-report! {:AvailableMB      921.0
                    :ObjectCacheCount 464

@@ -84,7 +84,7 @@
         "x": 0,
         "y": 0
       },
-      "id": 62,
+      "id": 73,
       "title": "Memory",
       "type": "row"
     },
@@ -174,7 +174,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "13.1.2",
+      "pluginVersion": "13.2.2",
       "targets": [
         {
           "datasource": {
@@ -275,7 +275,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "13.1.2",
+      "pluginVersion": "13.2.2",
       "targets": [
         {
           "datasource": {
@@ -308,7 +308,7 @@
         "x": 0,
         "y": 8
       },
-      "id": 63,
+      "id": 74,
       "title": "Transactions",
       "type": "row"
     },
@@ -398,7 +398,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "13.1.2",
+      "pluginVersion": "13.2.2",
       "targets": [
         {
           "datasource": {
@@ -499,7 +499,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "13.1.2",
+      "pluginVersion": "13.2.2",
       "targets": [
         {
           "datasource": {
@@ -522,6 +522,117 @@
       ],
       "title": "Transaction Latency (ms)",
       "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "ms"
+        }
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 6,
+        "x": 12,
+        "y": 9
+      },
+      "id": 81,
+      "options": {
+        "annotations": {
+          "clustering": -1,
+          "multiLane": false
+        },
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "enableFacetedFilter": false,
+          "overflow": "ellipsis",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "13.2.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "datomic_transactor_transaction_apply_msec_hi",
+          "legendFormat": "peak",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "datomic_transactor_transaction_apply_msec_sum / clamp_min(datomic_transactor_transaction_apply_msec_count, 1)",
+          "legendFormat": "avg",
+          "refId": "B"
+        }
+      ],
+      "title": "Transaction Apply Latency (ms)",
+      "type": "timeseries",
+      "description": "Time the transactor spent applying the transaction, a subset of total transaction latency."
     },
     {
       "datasource": {
@@ -592,8 +703,8 @@
       },
       "gridPos": {
         "h": 7,
-        "w": 12,
-        "x": 12,
+        "w": 6,
+        "x": 18,
         "y": 9
       },
       "id": 15,
@@ -616,7 +727,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "13.1.2",
+      "pluginVersion": "13.2.2",
       "targets": [
         {
           "datasource": {
@@ -639,7 +750,7 @@
         "x": 0,
         "y": 16
       },
-      "id": 64,
+      "id": 75,
       "title": "Datoms",
       "type": "row"
     },
@@ -690,7 +801,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "13.1.2",
+      "pluginVersion": "13.2.2",
       "targets": [
         {
           "datasource": {
@@ -792,7 +903,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "13.1.2",
+      "pluginVersion": "13.2.2",
       "targets": [
         {
           "datasource": {
@@ -894,7 +1005,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "13.1.2",
+      "pluginVersion": "13.2.2",
       "targets": [
         {
           "datasource": {
@@ -914,7 +1025,7 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "How many novel datoms are transacted per minute",
+      "description": "Fixed 1-minute window, independent of the $window dashboard variable — for comparing datom volume against transaction volume without rate() smearing",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -971,48 +1082,40 @@
         }
       },
       "gridPos": {
-        "h": 9,
+        "h": 8,
         "w": 12,
         "x": 0,
         "y": 24
       },
-      "id": 61,
+      "id": 72,
       "options": {
-        "annotations": {
-          "clustering": -1,
-          "multiLane": false
-        },
         "legend": {
-          "calcs": [
-            "mean",
-            "lastNotNull",
-            "max"
-          ],
-          "displayMode": "table",
-          "enableFacetedFilter": false,
-          "overflow": "ellipsis",
+          "calcs": [],
+          "displayMode": "list",
           "placement": "bottom",
           "showLegend": true
         },
         "tooltip": {
           "hideZeros": false,
           "mode": "multi",
-          "sort": "desc"
+          "sort": "none"
         }
       },
-      "pluginVersion": "13.1.2",
+      "pluginVersion": "13.2.2",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "datomic_transactor_transaction_datoms_sum",
-          "legendFormat": "sum",
+          "editorMode": "code",
+          "expr": "increase(datomic_transactor_transaction_datoms_sum_counter_total[$window])",
+          "legendFormat": "Datoms per Minute",
+          "range": true,
           "refId": "A"
         }
       ],
-      "title": "Datoms per Minute",
+      "title": "Datoms per $window",
       "type": "timeseries"
     },
     {
@@ -1077,7 +1180,7 @@
         }
       },
       "gridPos": {
-        "h": 9,
+        "h": 8,
         "w": 12,
         "x": 12,
         "y": 24
@@ -1106,7 +1209,7 @@
           "sort": "desc"
         }
       },
-      "pluginVersion": "13.1.2",
+      "pluginVersion": "13.2.2",
       "targets": [
         {
           "datasource": {
@@ -1136,9 +1239,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 33
+        "y": 32
       },
-      "id": 65,
+      "id": 76,
       "panels": [
         {
           "datasource": {
@@ -1205,7 +1308,7 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 34
+            "y": 33
           },
           "id": 14,
           "options": {
@@ -1385,14 +1488,13 @@
                   }
                 ]
               }
-            },
-            "overrides": []
+            }
           },
           "gridPos": {
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 42
+            "y": 41
           },
           "id": 70,
           "options": {
@@ -1485,14 +1587,13 @@
                   }
                 ]
               }
-            },
-            "overrides": []
+            }
           },
           "gridPos": {
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 50
+            "y": 49
           },
           "id": 71,
           "options": {
@@ -1537,9 +1638,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 34
+        "y": 33
       },
-      "id": 66,
+      "id": 77,
       "title": "Index",
       "type": "row"
     },
@@ -1608,7 +1709,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 35
+        "y": 34
       },
       "id": 9,
       "options": {
@@ -1634,7 +1735,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "13.1.2",
+      "pluginVersion": "13.2.2",
       "targets": [
         {
           "datasource": {
@@ -1738,7 +1839,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 35
+        "y": 34
       },
       "id": 25,
       "options": {
@@ -1760,7 +1861,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "13.1.2",
+      "pluginVersion": "13.2.2",
       "targets": [
         {
           "datasource": {
@@ -1783,9 +1884,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 44
+        "y": 43
       },
-      "id": 67,
+      "id": 78,
       "title": "Storage",
       "type": "row"
     },
@@ -1853,7 +1954,7 @@
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 45
+        "y": 44
       },
       "id": 21,
       "options": {
@@ -1875,7 +1976,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "13.1.2",
+      "pluginVersion": "13.2.2",
       "targets": [
         {
           "datasource": {
@@ -1963,7 +2064,7 @@
         "h": 7,
         "w": 12,
         "x": 12,
-        "y": 45
+        "y": 44
       },
       "id": 22,
       "options": {
@@ -1985,7 +2086,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "13.1.2",
+      "pluginVersion": "13.2.2",
       "targets": [
         {
           "datasource": {
@@ -2015,9 +2116,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 52
+        "y": 51
       },
-      "id": 68,
+      "id": 79,
       "title": "GC & JVM",
       "type": "row"
     },
@@ -2089,7 +2190,7 @@
         "h": 7,
         "w": 8,
         "x": 0,
-        "y": 53
+        "y": 52
       },
       "id": 31,
       "options": {
@@ -2111,7 +2212,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "13.1.2",
+      "pluginVersion": "13.2.2",
       "targets": [
         {
           "datasource": {
@@ -2199,7 +2300,7 @@
         "h": 7,
         "w": 8,
         "x": 8,
-        "y": 53
+        "y": 52
       },
       "id": 32,
       "options": {
@@ -2221,7 +2322,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "13.1.2",
+      "pluginVersion": "13.2.2",
       "targets": [
         {
           "datasource": {
@@ -2300,7 +2401,7 @@
         "h": 7,
         "w": 8,
         "x": 16,
-        "y": 53
+        "y": 52
       },
       "id": 33,
       "options": {
@@ -2322,7 +2423,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "13.1.2",
+      "pluginVersion": "13.2.2",
       "targets": [
         {
           "datasource": {
@@ -2343,9 +2444,9 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 60
+        "y": 59
       },
-      "id": 69,
+      "id": 80,
       "panels": [
         {
           "datasource": {
@@ -2356,7 +2457,7 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 61
+            "y": 60
           },
           "id": 44,
           "options": {
@@ -2397,7 +2498,7 @@
             "h": 10,
             "w": 24,
             "x": 0,
-            "y": 69
+            "y": 68
           },
           "id": 43,
           "options": {
@@ -2502,5 +2603,5 @@
   "timezone": "browser",
   "title": "Transactor Metrics",
   "uid": "datomic-overview",
-  "version": 28
+  "version": 48
 }

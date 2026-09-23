@@ -102,7 +102,8 @@ Key ones:
 
 - `datomic_transactor_available_mb` — free JVM heap
 - `datomic_transactor_transaction_msec_{hi,sum,count}` — tx latency
-- `datomic_transactor_transaction_batch_{hi,sum,count}` — datoms per tx
+- `datomic_transactor_transaction_datoms_{hi,sum,count}` — datoms per tx
+- `datomic_transactor_transaction_batch_{hi,sum,count}` — transactions batched into one log write
 - `datomic_transactor_gc_pause_msec_{hi,sum,count}` — GC pauses
 - `datomic_transactor_memory_index_mb_hi` — memory index size
 - `datomic_transactor_memory_index_max_mb` / `_threshold_mb` — the configured
@@ -146,7 +147,8 @@ Promtail tails `$DATOMIC_LOG_PATH/*.log` and extracts:
 **Structured metadata** (numeric, extracted from EDN on `:event :metrics` lines):
 `available_mb`, `object_cache_count`, `gc_pause_msec_{hi,sum,count}`,
 `heartbeat_msec_{hi,sum,count}`, `memory_index_mb_{hi,count}`,
-`transaction_msec_{hi,sum,count}`, `transaction_batch_{hi,sum,count}`,
+`transaction_msec_{hi,sum,count}`, `transaction_datoms_{hi,sum,count}`,
+`transaction_batch_{hi,sum,count}`,
 `storage_{get,put}_msec_{hi,sum,count}`, `indexing_job_msec_{hi,sum,count}`,
 `remote_peers_count`
 

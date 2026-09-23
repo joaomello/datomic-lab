@@ -43,4 +43,5 @@ opencode.json
 .env
 datomic-pro/
 .datomic/
-peer-lab/.rebl/prefs.edn
+.run/
+peer-lab/.rebl/
