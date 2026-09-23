@@ -52,9 +52,6 @@ chmod +x "$TASK_TMP/tools/"*
 export PATH="$TASK_TMP/tools:$PATH"
 unset JAVA_HOME DATOMIC_HOME DATOMIC_DOWNLOAD DATOMIC_DOWNLOAD_DIR DATOMIC_TRANSACTOR_CONFIG DATOMIC_COMPOSE
 export DATOMIC_ENV="$REPO/.env" DATOMIC_START_TIMEOUT=5
-if JAVA_HOME="$TASK_TMP/missing-jdk" bash "$REPO/build.sh" > "$TASK_TMP/java-error" 2>&1; then exit 1; fi
-grep -Fq 'JAVA_HOME does not contain bin/java' "$TASK_TMP/java-error"
-echo 'PASS: invalid Java configuration fails before build'
 
 fixture() {
   mkdir -p "$1/bin" "$1/lib/console" "$1/config" "$1/log"
@@ -118,6 +115,15 @@ grep -Fq 'Install:' "$TASK_TMP/result"
 variant java-ga java "echo 'openjdk version \"21\" 2023-09-19' >&2"
 check_requirements java-ga
 echo 'PASS: unsupported Java shows the version found; GA "21" is accepted'
+
+# A stale JAVA_HOME (removed or upgraded JDK) falls back to the java on PATH.
+JAVA_HOME="$TASK_TMP/missing-jdk" check_requirements none > "$TASK_TMP/java-stale" 2>&1
+grep -Fq "ignoring JAVA_HOME=$TASK_TMP/missing-jdk" "$TASK_TMP/java-stale"
+# A valid JAVA_HOME wins over PATH, and the error says where that java came from.
+variant jdk11/bin java "echo 'openjdk version \"11.0.2\" 2019-01-15' >&2"
+JAVA_HOME="$TASK_TMP/variant-jdk11" expect_failure '(from JAVA_HOME)' check_requirements none
+grep -Fq 'openjdk version "11.0.2"' "$TASK_TMP/result"
+echo 'PASS: stale JAVA_HOME falls back to PATH; a wrong one is named in the error'
 
 # A missing Compose plugin is reported as such even when the daemon is also
 # down, instead of first sending the participant to start Colima.

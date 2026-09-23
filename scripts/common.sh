@@ -39,7 +39,15 @@ DATOMIC_CONSOLE_JAVA_OPTS="${DATOMIC_CONSOLE_JAVA_OPTS:--Xmx512m -Duser.timezone
 for brew_bin in /opt/homebrew/bin /usr/local/bin; do
   [[ -d "$brew_bin" && ":$PATH:" != *":$brew_bin:"* ]] && PATH="$PATH:$brew_bin"
 done
-if [[ -n "${JAVA_HOME:-}" ]]; then export PATH="$JAVA_HOME/bin:$PATH"; fi
+# JAVA_HOME wins when it really holds a JDK, as it does for the Clojure CLI. A
+# stale one (a removed or upgraded JDK) is dropped so every child process falls
+# back to the java on PATH; requirements() reports it.
+stale_java_home="" java_source=PATH
+if [[ -n "${JAVA_HOME:-}" ]]; then
+  if [[ -x "$JAVA_HOME/bin/java" ]]; then export PATH="$JAVA_HOME/bin:$PATH"; java_source=JAVA_HOME
+  else stale_java_home="$JAVA_HOME"; unset JAVA_HOME
+  fi
+fi
 COMPOSE=()
 
 info() { printf '→ %s\n' "$*"; }
@@ -64,14 +72,15 @@ missing() {
 
 requirements() {
   local mode="$1" errors=0 version found
-  if [[ -n "${JAVA_HOME:-}" && ! -x "$JAVA_HOME/bin/java" ]]; then
-    fail "JAVA_HOME does not contain bin/java. Configure JAVA_HOME or unset it to use PATH."
+  if [[ -n "$stale_java_home" ]]; then
+    printf 'Warning: ignoring JAVA_HOME=%s: it has no bin/java. Using java from PATH.\n  Fix or remove JAVA_HOME in your shell profile.\n' "$stale_java_home" >&2
   fi
   # GA releases print `version "21"` with no minor part, so accept `.` or `"`.
   if ! version="$(java -version 2>&1)" || [[ ! "$version" =~ version\ \"(17|21|25)[.\"] ]]; then
-    if has java; then found="$(printf '%s\n' "$version" | head -1)"; else found=""; fi
+    if has java; then found="$(printf '%s\n' "$version" | head -1) at $(command -v java) (from $java_source)"; else found=""; fi
+    # shellcheck disable=SC2016 # printed for the participant to run, not expanded here
     missing "Java 17, 21, or 25 is required. Found: ${found:-no java on PATH}" \
-      'brew install --cask temurin@21   (or set JAVA_HOME to a supported JDK)' \
+      'brew install --cask temurin@21   (or: export JAVA_HOME=$(/usr/libexec/java_home -v 21))' \
       'sudo apt install -y openjdk-21-jdk   (or set JAVA_HOME to a supported JDK)'
     errors=$((errors+1))
   fi

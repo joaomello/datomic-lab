@@ -130,6 +130,21 @@ Check `java -version` and `clojure -Sdescribe`. On macOS, `java` on your PATH
 can be a system stub that doesn't run Java. Set `JAVA_HOME` to a Java 17, 21,
 or 25 installation.
 
+**The build rejects Java, but `java -version` works in your terminal:** when
+`JAVA_HOME` is set, the scripts use `$JAVA_HOME/bin/java`, which can be a
+different Java than the one your terminal runs. The error says which one it
+checked. Compare:
+
+```bash
+echo $JAVA_HOME
+"$JAVA_HOME/bin/java" -version
+```
+
+Fix it by unsetting `JAVA_HOME` in your shell profile, or by pointing it at a
+supported JDK: `export JAVA_HOME=$(/usr/libexec/java_home -v 21)` on macOS, or
+`sdk use java <version>` with SDKMAN. If `JAVA_HOME` points to a folder with no
+Java in it, the scripts print a warning and use the `java` on your PATH.
+
 A global `JAVA_TOOL_OPTIONS` applies to every JVM and can conflict with the
 lab's GC settings. If Java rejects an option, check `.run/transactor.log`.
 
