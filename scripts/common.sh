@@ -84,8 +84,21 @@ compose_binary() {
   return 1
 }
 
+# Docker exec's docker-credential-<store> for every registry operation, even
+# pulling public images. An uninstalled Docker Desktop leaves "credsStore":
+# "desktop" behind, and compose then dies at pull time -- long after the
+# client-side checks here have all passed. Prints the orphaned store name.
+docker_cred_store_missing() {
+  local config="${DOCKER_CONFIG:-$HOME/.docker}/config.json" store
+  [[ -f "$config" ]] || return 1
+  store="$(sed -n 's/.*"credsStore"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$config" | head -1)"
+  [[ -n "$store" ]] || return 1
+  has "docker-credential-$store" && return 1
+  printf '%s\n' "$store"
+}
+
 requirements() {
-  local mode="$1" errors=0 version found compose_found
+  local mode="$1" errors=0 version found compose_found cred_store
   if [[ -n "$stale_java_home" ]]; then
     printf 'Warning: ignoring JAVA_HOME=%s: it has no bin/java. Using java from PATH.\n  Fix or remove JAVA_HOME in your shell profile.\n' "$stale_java_home" >&2
   fi
@@ -148,6 +161,15 @@ requirements() {
       printf 'podman is installed but "podman compose" is missing. Install a Compose provider (e.g. podman-compose).\n' >&2
     fi
     errors=$((errors+1))
+  fi
+  # Deliberately a warning, not an error: it only bites when Docker actually
+  # contacts the registry, so a machine whose images are already pulled works.
+  if cred_store="$(docker_cred_store_missing)"; then
+    printf 'Warning: Docker is configured to use the "%s" credential helper, but docker-credential-%s is not on PATH.\n' "$cred_store" "$cred_store" >&2
+    printf '  Pulling images will fail with "error getting credentials", even for public images.\n' >&2
+    printf '  Usually a leftover from an uninstalled Docker Desktop. With Colima you do not need a helper:\n' >&2
+    printf '    remove the "credsStore" line from %s\n' "${DOCKER_CONFIG:-$HOME/.docker}/config.json" >&2
+    printf '  Or install one: brew install docker-credential-helper (then set "credsStore": "osxkeychain").\n' >&2
   fi
   (( errors == 0 )) || fail "$errors prerequisite check(s) failed. See TROUBLESHOOTING.md#install-the-prerequisites."
 }

@@ -5,6 +5,7 @@ report missing tools before running, but they never install anything, start a
 VM, or switch Docker contexts for you.
 
 - [Install the prerequisites](#install-the-prerequisites): Java, Clojure, Docker Desktop or Colima
+- ["error getting credentials" when pulling images](#error-getting-credentials-when-pulling-images)
 - [A port is already in use](#a-port-is-already-in-use)
 - [Java or Clojure problems](#java-or-clojure-problems)
 - [Datomic download or installation](#datomic-download-or-installation)
@@ -117,6 +118,37 @@ docker run --rm hello-world
 
 The old standalone `docker-compose` command isn't used; `docker compose` must
 work.
+
+## "error getting credentials" when pulling images
+
+`./start.sh` stops while pulling the observability images:
+
+```
+error getting credentials - err: exec: "docker-credential-desktop": executable file not found in $PATH, out: ``
+```
+
+Docker resolves registry credentials on every pull — including public images
+that need no login — by running `docker-credential-<store>`, where the store
+comes from `"credsStore"` in `~/.docker/config.json`. `docker-credential-desktop`
+ships with Docker Desktop, so the entry is a leftover from an uninstalled or
+half-installed Docker Desktop. Colima never writes a `credsStore` and doesn't
+need a helper at all.
+
+Remove the `"credsStore"` line from `~/.docker/config.json`. A working Colima
+config needs nothing more than:
+
+```json
+{ "auths": {}, "currentContext": "colima" }
+```
+
+If you do want a helper, install one and point `credsStore` at it instead:
+
+```bash
+brew install docker-credential-helper   # provides docker-credential-osxkeychain
+```
+
+`DOCKER_CONFIG` overrides the directory, so check `$DOCKER_CONFIG/config.json`
+if you have it set.
 
 ## A port is already in use
 

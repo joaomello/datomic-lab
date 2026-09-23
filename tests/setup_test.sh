@@ -150,6 +150,20 @@ grep -Fq 'docker-compose, not docker-buildx' "$TASK_TMP/result"
 if grep -Fq 'brew install docker-compose' "$TASK_TMP/result"; then cat "$TASK_TMP/result"; exit 1; fi
 echo 'PASS: installed-but-unregistered Compose is told to register, not install'
 
+# A credsStore pointing at an absent helper (uninstalled Docker Desktop) breaks
+# image pulls, but only when Docker reaches the registry -- so it warns and the
+# run must still succeed. check_requirements succeeding IS the assertion.
+mkdir -p "$TASK_TMP/dockercfg"
+printf '{"auths":{},"credsStore":"desktop"}\n' > "$TASK_TMP/dockercfg/config.json"
+DOCKER_CONFIG="$TASK_TMP/dockercfg" check_requirements none > "$TASK_TMP/creds" 2>&1
+grep -Fq 'docker-credential-desktop is not on PATH' "$TASK_TMP/creds"
+grep -Fq 'credsStore' "$TASK_TMP/creds"
+# A config without credsStore must stay silent.
+printf '{"auths":{},"currentContext":"colima"}\n' > "$TASK_TMP/dockercfg/config.json"
+DOCKER_CONFIG="$TASK_TMP/dockercfg" check_requirements none > "$TASK_TMP/creds-ok" 2>&1
+if grep -Fq 'credential helper' "$TASK_TMP/creds-ok"; then cat "$TASK_TMP/creds-ok"; exit 1; fi
+echo 'PASS: an orphaned credential helper warns without failing the run'
+
 expect_failure 'DATOMIC_DOWNLOAD=1' bash "$REPO/build.sh" </dev/null
 expect_failure 'Not a complete Datomic' env DATOMIC_HOME="$TASK_TMP/missing" DATOMIC_DOWNLOAD=1 bash "$REPO/build.sh"
 expect_failure 'Download failed' env DATOMIC_DOWNLOAD=1 bash "$REPO/build.sh"
