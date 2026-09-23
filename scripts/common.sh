@@ -35,9 +35,11 @@ DATOMIC_CONSOLE_JAVA_OPTS="${DATOMIC_CONSOLE_JAVA_OPTS:--Xmx512m -Duser.timezone
 # This script's shebang runs bash non-interactively, so it never sources
 # .zshrc/.zprofile: tools whose PATH entry is only added there (e.g. Homebrew's
 # `brew shellenv`) are invisible here even though they work in an interactive
-# shell. Add the standard Homebrew bin dirs so `has` matches what the user sees.
-for brew_bin in /opt/homebrew/bin /usr/local/bin; do
-  [[ -d "$brew_bin" && ":$PATH:" != *":$brew_bin:"* ]] && PATH="$PATH:$brew_bin"
+# shell. Add those bin dirs so `has` matches what the user sees. ~/.docker/bin
+# is where Docker Desktop's user-level install puts docker and its credential
+# helper; without it a working Docker Desktop looks like a broken one here.
+for extra_bin in /opt/homebrew/bin /usr/local/bin "$HOME/.docker/bin"; do
+  [[ -d "$extra_bin" && ":$PATH:" != *":$extra_bin:"* ]] && PATH="$PATH:$extra_bin"
 done
 # JAVA_HOME wins when it really holds a JDK, as it does for the Clojure CLI. A
 # stale one (a removed or upgraded JDK) is dropped so every child process falls
