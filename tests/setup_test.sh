@@ -128,9 +128,27 @@ echo 'PASS: stale JAVA_HOME falls back to PATH; a wrong one is named in the erro
 # A missing Compose plugin is reported as such even when the daemon is also
 # down, instead of first sending the participant to start Colima.
 variant no-compose docker 'exit 1'
-expect_failure 'plugin is missing' check_requirements no-compose
+expect_failure 'docker compose' check_requirements no-compose
 if grep -Fq 'colima start' "$TASK_TMP/result"; then cat "$TASK_TMP/result"; exit 1; fi
+# Which of the two diagnoses applies depends on the host: common.sh always adds
+# Homebrew's bin to PATH, so a machine with the formula installed cannot be made
+# to look like one without it. Assert each wording only where it can apply.
+if bash -c 'source "$1/scripts/common.sh"; compose_binary >/dev/null' _ "$REPO"; then
+  grep -Fq 'not registered as a Docker CLI plugin' "$TASK_TMP/result"
+else
+  grep -Fq 'plugin is missing' "$TASK_TMP/result"
+fi
 echo 'PASS: missing compose plugin is diagnosed before the daemon'
+
+# Compose installed but never linked into ~/.docker/cli-plugins: the message
+# must say "register", not "install", and name docker-compose over docker-buildx.
+variant unregistered docker 'exit 1'
+variant unregistered docker-compose 'echo "Docker Compose version 5.5.1"'
+expect_failure 'not registered as a Docker CLI plugin' check_requirements unregistered
+grep -Fq 'docker-compose, not docker-buildx' "$TASK_TMP/result"
+# Advising an install here is what sent a participant in circles; guard it.
+if grep -Fq 'brew install docker-compose' "$TASK_TMP/result"; then cat "$TASK_TMP/result"; exit 1; fi
+echo 'PASS: installed-but-unregistered Compose is told to register, not install'
 
 expect_failure 'DATOMIC_DOWNLOAD=1' bash "$REPO/build.sh" </dev/null
 expect_failure 'Not a complete Datomic' env DATOMIC_HOME="$TASK_TMP/missing" DATOMIC_DOWNLOAD=1 bash "$REPO/build.sh"

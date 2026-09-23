@@ -70,8 +70,22 @@ missing() {
   fi
 }
 
+# Where Compose ends up when the formula is installed but never registered as a
+# CLI plugin. Printed so the suggested fix names a path that actually exists.
+compose_binary() {
+  local prefix candidate
+  if has docker-compose; then command -v docker-compose; return 0; fi
+  has brew || return 1
+  prefix="$(brew --prefix 2>/dev/null)" || return 1
+  for candidate in "$prefix/opt/docker-compose/bin/docker-compose" \
+                   "$prefix/lib/docker/cli-plugins/docker-compose"; do
+    if [[ -x "$candidate" ]]; then printf '%s\n' "$candidate"; return 0; fi
+  done
+  return 1
+}
+
 requirements() {
-  local mode="$1" errors=0 version found
+  local mode="$1" errors=0 version found compose_found
   if [[ -n "$stale_java_home" ]]; then
     printf 'Warning: ignoring JAVA_HOME=%s: it has no bin/java. Using java from PATH.\n  Fix or remove JAVA_HOME in your shell profile.\n' "$stale_java_home" >&2
   fi
@@ -115,10 +129,21 @@ requirements() {
     elif has docker && ! docker compose version >/dev/null 2>&1; then
       # `docker compose version` is client-side: it fails only when the plugin
       # is missing, whether or not the daemon is running.
-      # shellcheck disable=SC2016 # printed for the participant to run, not expanded here
-      missing 'docker is installed but the "docker compose" plugin is missing.' \
-        'brew install docker-compose && mkdir -p ~/.docker/cli-plugins && ln -sfn "$(brew --prefix)/opt/docker-compose/bin/docker-compose" ~/.docker/cli-plugins/docker-compose' \
-        'sudo apt install -y docker-compose-plugin'
+      if compose_found="$(compose_binary)"; then
+        # The formula is installed; only the plugin link is missing. Telling
+        # someone in this state to install Compose sends them in circles -- and
+        # the link that matters is docker-compose, trivially confused with
+        # docker-buildx, which is a different plugin that does not provide it.
+        printf 'Docker Compose is installed at %s, but it is not registered as a Docker CLI plugin, so "docker compose" does not work.\n' "$compose_found" >&2
+        printf '  Register it:\n    mkdir -p ~/.docker/cli-plugins\n    ln -sfn "%s" ~/.docker/cli-plugins/docker-compose\n' "$compose_found" >&2
+        printf '  The plugin name is docker-compose, not docker-buildx.\n' >&2
+        printf '  Then check: docker compose version\n' >&2
+      else
+        # shellcheck disable=SC2016 # printed for the participant to run, not expanded here
+        missing 'docker is installed but the "docker compose" plugin is missing.' \
+          'brew install docker-compose && mkdir -p ~/.docker/cli-plugins && ln -sfn "$(brew --prefix)/opt/docker-compose/bin/docker-compose" ~/.docker/cli-plugins/docker-compose' \
+          'sudo apt install -y docker-compose-plugin'
+      fi
     elif has podman && ! podman compose version >/dev/null 2>&1; then
       printf 'podman is installed but "podman compose" is missing. Install a Compose provider (e.g. podman-compose).\n' >&2
     fi

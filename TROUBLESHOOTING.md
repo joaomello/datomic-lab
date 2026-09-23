@@ -52,6 +52,23 @@ mkdir -p ~/.docker/cli-plugins
 ln -sfn "$(brew --prefix)/opt/docker-compose/bin/docker-compose" ~/.docker/cli-plugins/docker-compose
 ```
 
+The plugin must be named `docker-compose`. Linking `docker-buildx` instead is an
+easy slip: it is a separate plugin, also useful, that does not provide
+`docker compose`. Check the link landed:
+
+```bash
+ls -l ~/.docker/cli-plugins/   # expect a docker-compose entry
+docker compose version
+```
+
+Instead of symlinking each plugin, you can point Docker at Homebrew's plugin
+directory once by adding `cliPluginsExtraDirs` to `~/.docker/config.json`, which
+is what `brew info docker-compose` suggests:
+
+```json
+{ "cliPluginsExtraDirs": ["/opt/homebrew/lib/docker/cli-plugins"] }
+```
+
 Start Colima with enough resources for the lab:
 
 ```bash
