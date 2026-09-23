@@ -53,22 +53,41 @@ open_url() {
   fi
 }
 
+# Print one missing-prerequisite message with the install command for this OS.
+missing() {
+  local what="$1" mac="$2" linux="$3"
+  printf '%s\n' "$what" >&2
+  if [[ "$(uname -s)" == Darwin ]]; then printf '  Install: %s\n' "$mac" >&2
+  else printf '  Install: %s\n' "$linux" >&2
+  fi
+}
+
 requirements() {
-  local mode="$1" errors=0 version
+  local mode="$1" errors=0 version found
   if [[ -n "${JAVA_HOME:-}" && ! -x "$JAVA_HOME/bin/java" ]]; then
     fail "JAVA_HOME does not contain bin/java. Configure JAVA_HOME or unset it to use PATH."
   fi
-  if ! version="$(java -version 2>&1)" || [[ ! "$version" =~ version\ \"(17|21|25)\. ]]; then
-    printf 'Java 17, 21, or 25 is required. Configure JAVA_HOME or PATH.\n' >&2
+  # GA releases print `version "21"` with no minor part, so accept `.` or `"`.
+  if ! version="$(java -version 2>&1)" || [[ ! "$version" =~ version\ \"(17|21|25)[.\"] ]]; then
+    if has java; then found="$(printf '%s\n' "$version" | head -1)"; else found=""; fi
+    missing "Java 17, 21, or 25 is required. Found: ${found:-no java on PATH}" \
+      'brew install --cask temurin@21   (or set JAVA_HOME to a supported JDK)' \
+      'sudo apt install -y openjdk-21-jdk   (or set JAVA_HOME to a supported JDK)'
     errors=$((errors+1))
   fi
-  if ! has curl; then printf 'curl is required; configure it on PATH.\n' >&2; errors=$((errors+1)); fi
+  if ! has curl; then
+    missing 'curl is required.' 'brew install curl' 'sudo apt install -y curl'; errors=$((errors+1))
+  fi
   if [[ "$mode" == build ]]; then
     if ! has clojure || ! clojure -Sdescribe >/dev/null 2>&1; then
-      printf 'Clojure CLI is required to build the exporter. Configure it on PATH.\n' >&2; errors=$((errors+1))
+      missing 'Clojure CLI is required to build the exporter.' \
+        'brew install clojure/tools/clojure' \
+        'see https://clojure.org/guides/install_clojure#_linux_instructions'
+      errors=$((errors+1))
     fi
   elif ! has lsof; then
-    printf 'lsof is required to check ports. Configure it on PATH.\n' >&2; errors=$((errors+1))
+    missing 'lsof is required to check ports.' 'lsof ships with macOS; check your PATH' 'sudo apt install -y lsof'
+    errors=$((errors+1))
   fi
   case "${DATOMIC_COMPOSE:-}" in
     'docker compose') COMPOSE=(docker compose) ;;
@@ -81,19 +100,22 @@ requirements() {
   esac
   if [[ ${#COMPOSE[@]} == 0 ]] || ! "${COMPOSE[@]}" version >/dev/null 2>&1; then
     if ! has docker && ! has podman; then
-      printf 'Neither docker nor podman is on PATH. Install Docker (e.g. via Colima or Docker Desktop) or Podman.\n' >&2
+      missing 'Docker is not installed.' \
+        'Docker Desktop, or: brew install colima docker docker-compose' \
+        'Docker Engine and docker-compose-plugin, see https://docs.docker.com/engine/install/'
     elif has docker && ! docker compose version >/dev/null 2>&1; then
-      if ! docker info >/dev/null 2>&1; then
-        printf 'docker is installed but its daemon is not reachable. Start Colima (colima start) or Docker Desktop.\n' >&2
-      else
-        printf 'docker is installed but the "docker compose" plugin is missing. Install Docker Compose v2.\n' >&2
-      fi
+      # `docker compose version` is client-side: it fails only when the plugin
+      # is missing, whether or not the daemon is running.
+      # shellcheck disable=SC2016 # printed for the participant to run, not expanded here
+      missing 'docker is installed but the "docker compose" plugin is missing.' \
+        'brew install docker-compose && mkdir -p ~/.docker/cli-plugins && ln -sfn "$(brew --prefix)/opt/docker-compose/bin/docker-compose" ~/.docker/cli-plugins/docker-compose' \
+        'sudo apt install -y docker-compose-plugin'
     elif has podman && ! podman compose version >/dev/null 2>&1; then
       printf 'podman is installed but "podman compose" is missing. Install a Compose provider (e.g. podman-compose).\n' >&2
     fi
     errors=$((errors+1))
   fi
-  (( errors == 0 )) || fail "$errors prerequisite check(s) failed. See TROUBLESHOOTING.md."
+  (( errors == 0 )) || fail "$errors prerequisite check(s) failed. See TROUBLESHOOTING.md#install-the-prerequisites."
 }
 
 installation() {

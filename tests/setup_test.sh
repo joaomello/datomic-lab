@@ -101,6 +101,31 @@ expect_failure 'Unknown option: --nope' bash "$REPO/build.sh" --nope
 expect_failure 'Too many arguments' bash "$REPO/build.sh" /one /two
 echo 'PASS: --help works without a toolchain; bad arguments are rejected'
 
+# Prerequisite messages name what was found and how to install what is missing.
+# Each case shadows one fixture tool with a variant placed earlier on PATH.
+variant() {
+  local dir="$TASK_TMP/variant-$1"
+  mkdir -p "$dir"
+  printf '#!/usr/bin/env bash\n%s\n' "$3" > "$dir/$2"
+  chmod +x "$dir/$2"
+}
+check_requirements() {
+  PATH="$TASK_TMP/variant-$1:$PATH" bash -c 'source "$1/scripts/common.sh"; requirements build' _ "$REPO"
+}
+variant java26 java "echo 'openjdk version \"26.0.1\" 2026-04-21' >&2"
+expect_failure 'Found: openjdk version "26.0.1"' check_requirements java26
+grep -Fq 'Install:' "$TASK_TMP/result"
+variant java-ga java "echo 'openjdk version \"21\" 2023-09-19' >&2"
+check_requirements java-ga
+echo 'PASS: unsupported Java shows the version found; GA "21" is accepted'
+
+# A missing Compose plugin is reported as such even when the daemon is also
+# down, instead of first sending the participant to start Colima.
+variant no-compose docker 'exit 1'
+expect_failure 'plugin is missing' check_requirements no-compose
+if grep -Fq 'colima start' "$TASK_TMP/result"; then cat "$TASK_TMP/result"; exit 1; fi
+echo 'PASS: missing compose plugin is diagnosed before the daemon'
+
 expect_failure 'DATOMIC_DOWNLOAD=1' bash "$REPO/build.sh" </dev/null
 expect_failure 'Not a complete Datomic' env DATOMIC_HOME="$TASK_TMP/missing" DATOMIC_DOWNLOAD=1 bash "$REPO/build.sh"
 expect_failure 'Download failed' env DATOMIC_DOWNLOAD=1 bash "$REPO/build.sh"
@@ -205,6 +230,15 @@ grep -Fqx "DATOMIC_HOME='$ALT'" "$REPO/.env"
 export DATOMIC_HOME="$INSTALL"
 bash "$REPO/build.sh" >/dev/null
 echo 'PASS: positional path overrides .env and is recorded in it'
+
+# Build works with Docker stopped, and says to start it before ./start.sh.
+# shellcheck disable=SC2016 # the fixture's own $1, expanded when it runs
+variant daemon-down docker '[[ "$1" != info ]]'
+PATH="$TASK_TMP/variant-daemon-down:$PATH" bash "$REPO/build.sh" > "$TASK_TMP/build-down" 2>&1
+grep -Fq 'Docker is not running' "$TASK_TMP/build-down"
+bash "$REPO/build.sh" > "$TASK_TMP/build-up" 2>&1
+grep -Fq 'Build complete. Run ./start.sh.' "$TASK_TMP/build-up"
+echo 'PASS: build summary reflects whether Docker is running'
 
 expect_failure 'Port 9100 is in use' env PORT_CONFLICT=1 bash "$REPO/start.sh"
 [[ ! -d "$REPO/.run/active" ]]

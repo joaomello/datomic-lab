@@ -164,6 +164,8 @@ info "Building the metrics exporter"
 cp "$ROOT_DIR/metrics-exporter/target/datomic-metrics-standalone.jar" "$DATOMIC_HOME/lib/datomic-metrics-standalone.jar"
 mkdir -p "$DATOMIC_LOG_PATH" "$RUN_DIR"
 compose config >/dev/null
-info "Build complete. Run ./start.sh."
+if "${COMPOSE[0]}" info >/dev/null 2>&1; then info "Build complete. Run ./start.sh."
+else info "Build complete. Docker is not running: start Docker Desktop, or run colima start, then run ./start.sh."
+fi
 printf 'Datomic:     %s\nRecorded in: %s\nProperties:  %s (edit directly; ./transactor-restart.sh applies changes without a rebuild)\n' \
   "$DATOMIC_HOME" "$ENV_FILE" "$DATOMIC_TRANSACTOR_CONFIG"

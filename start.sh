@@ -4,7 +4,7 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/scripts/common.sh"
 requirements run
 installation
-"${COMPOSE[0]}" info >/dev/null 2>&1 || fail "Container runtime unavailable. Check your context and start Colima, Docker Desktop, or the Podman machine. See TROUBLESHOOTING.md."
+"${COMPOSE[0]}" info >/dev/null 2>&1 || fail "Docker is not running. Start Docker Desktop, or run: colima start. See TROUBLESHOOTING.md#install-the-prerequisites."
 [[ "$DATOMIC_START_TIMEOUT" =~ ^[1-9][0-9]*$ ]] || fail "DATOMIC_START_TIMEOUT must be a positive number of seconds."
 if [[ ! "$DATOMIC_CONSOLE_PORT" =~ ^[1-9][0-9]*$ ]] || (( DATOMIC_CONSOLE_PORT > 65535 )); then fail "Invalid DATOMIC_CONSOLE_PORT."; fi
 [[ -f "$DATOMIC_HOME/lib/datomic-metrics-standalone.jar" && -f "$DATOMIC_TRANSACTOR_CONFIG" && -d "$DATOMIC_LOG_PATH" ]] || fail "Build is incomplete. Run ./build.sh first."
