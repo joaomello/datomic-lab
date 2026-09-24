@@ -1,86 +1,43 @@
 (ns lab.workshop
-  (:require [datomic.api :as d]))
+  (:require [datomic.api :as d]
+            [lab.utils :as utils]))
 
 
-(def uri "datomic:dev://localhost:4334/mello-workshop")
+(def uri "datomic:dev://localhost:4334/conj-workshop")
+
+(require 'lab.datomic-metrics)
+(lab.datomic-metrics/start!)
+(slurp "http://localhost:9101/metrics")
 
 
 (comment
-  (require 'lab.datomic-metrics)
-  (lab.datomic-metrics/start!)
-  (slurp "http://localhost:9101/metrics")
-
-
   (d/create-database uri)
   (def con (d/connect uri))
 
-  @(d/transact con [{:db/ident       :account/branch-code
-                     :db/valueType   :db.type/string
-                     :db/cardinality :db.cardinality/one}
-                    {:db/ident       :account/number
-                     :db/valueType   :db.type/string
-                     :db/cardinality :db.cardinality/one}
+  ;; helper functions
+  (lab.utils/parse-date "2020-09-14T18:14:24Z")
+  (lab.utils/parse-date "2021-11-09")
+  (lab.utils/parse-decimal "6300.00")
 
 
-                    {:db/ident       :ledger/account
-                     :db/valueType   :db.type/ref
-                     :db/cardinality :db.cardinality/one}
-                    {:db/ident       :ledger/post-at
-                     :db/valueType   :db.type/instant
-                     :db/cardinality :db.cardinality/one}])
-
-  (require '[clojure.data.csv :as csv]
-           '[clojure.java.io :as io])
-
-  (def account-file "/Users/joao.nascimento/dev/nu/joaomello/day-of-datomic-pro/datasets/accounts.csv")
-  (def a (io/reader "/Users/joao.nascimento/dev/nu/joaomello/day-of-datomic-pro/datasets/accounts.csv"))
-  (def l (csv/read-csv a))
-
-  (time (doseq [{:keys [branch_code account_number]} (:rows (read-csv account-file))]
-          @(d/transact con [{:account/branch-code branch_code
-                             :account/number      account_number}])))
-
-(count (:rows (read-csv account-file)))
-(d/request-index con)
-
-
-(time (doseq [batch (partition-all 1000 (:rows (read-csv account-file)))]
-        @(d/transact con
-                    (mapv (fn [{:keys [branch_code account_number]}]
-                            {:account/branch-code branch_code
-                             :account/number      account_number})
-                          batch))))
-
-
-  (defn read-csv [path]
-    (with-open [r (io/reader path)]
-      (let [[header & rows] (doall (csv/read-csv r))
-            ks (mapv keyword header)]
-        {:header header
-         :rows (mapv #(zipmap ks %) rows)})))
-
-
-  (seq (d/datoms (d/db con) :eavt))
-
-  (d/db-stats (d/db con))
-
-  (-> (d/db-stats (d/db con))
-      :attrs
-      :account/branch-code)
-
+  ;; instructions at WORSHOP.md
   
+  ;; accounts.csv
+  (doseq [{:keys [account_id customer_id branch_code account_number account_type
+                  status opened_at closed_at overdraft_limit]}
+          (:rows (utils/read-accounts))]
+    )
 
-  (let [[header & rows] l]
-    customer_id)
+  ;; customers.csv
+  (doseq [{:keys [customer_id document_number full_name birth_date email phone
+                  city state segment risk_score created_at]}
+          (:rows (utils/read-customers))]
+    )
 
-  
-  (println l)
-  
-  (with-open [reader (clojure.java.io/reader "/Users/joao.nascimento/dev/nu/joaomello/day-of-datomic-pro/datasets/accounts.csv")]
-    (doseq [line (line-seq reader)]))
-
-  
-
-
+  ;; ledger_entries.csv
+  (doseq [{:keys [entry_id account_id posted_at amount direction entry_type
+                  merchant_id merchant_name mcc_code description balance_after]}
+          (:rows (utils/ledger-entries))]
+    )
   
   )
