@@ -52,9 +52,6 @@ chmod +x "$TASK_TMP/tools/"*
 export PATH="$TASK_TMP/tools:$PATH"
 unset JAVA_HOME DATOMIC_HOME DATOMIC_DOWNLOAD DATOMIC_DOWNLOAD_DIR DATOMIC_TRANSACTOR_CONFIG DATOMIC_COMPOSE
 export DATOMIC_ENV="$REPO/.env" DATOMIC_START_TIMEOUT=5
-if JAVA_HOME="$TASK_TMP/missing-jdk" bash "$REPO/build.sh" > "$TASK_TMP/java-error" 2>&1; then exit 1; fi
-grep -Fq 'JAVA_HOME does not contain bin/java' "$TASK_TMP/java-error"
-echo 'PASS: invalid Java configuration fails before build'
 
 fixture() {
   mkdir -p "$1/bin" "$1/lib/console" "$1/config" "$1/log"
@@ -100,6 +97,72 @@ grep -Fq '1.0.7705' "$TASK_TMP/help"
 expect_failure 'Unknown option: --nope' bash "$REPO/build.sh" --nope
 expect_failure 'Too many arguments' bash "$REPO/build.sh" /one /two
 echo 'PASS: --help works without a toolchain; bad arguments are rejected'
+
+# Prerequisite messages name what was found and how to install what is missing.
+# Each case shadows one fixture tool with a variant placed earlier on PATH.
+variant() {
+  local dir="$TASK_TMP/variant-$1"
+  mkdir -p "$dir"
+  printf '#!/usr/bin/env bash\n%s\n' "$3" > "$dir/$2"
+  chmod +x "$dir/$2"
+}
+check_requirements() {
+  PATH="$TASK_TMP/variant-$1:$PATH" bash -c 'source "$1/scripts/common.sh"; requirements build' _ "$REPO"
+}
+variant java26 java "echo 'openjdk version \"26.0.1\" 2026-04-21' >&2"
+expect_failure 'Found: openjdk version "26.0.1"' check_requirements java26
+grep -Fq 'Install:' "$TASK_TMP/result"
+variant java-ga java "echo 'openjdk version \"21\" 2023-09-19' >&2"
+check_requirements java-ga
+echo 'PASS: unsupported Java shows the version found; GA "21" is accepted'
+
+# A stale JAVA_HOME (removed or upgraded JDK) falls back to the java on PATH.
+JAVA_HOME="$TASK_TMP/missing-jdk" check_requirements none > "$TASK_TMP/java-stale" 2>&1
+grep -Fq "ignoring JAVA_HOME=$TASK_TMP/missing-jdk" "$TASK_TMP/java-stale"
+# A valid JAVA_HOME wins over PATH, and the error says where that java came from.
+variant jdk11/bin java "echo 'openjdk version \"11.0.2\" 2019-01-15' >&2"
+JAVA_HOME="$TASK_TMP/variant-jdk11" expect_failure '(from JAVA_HOME)' check_requirements none
+grep -Fq 'openjdk version "11.0.2"' "$TASK_TMP/result"
+echo 'PASS: stale JAVA_HOME falls back to PATH; a wrong one is named in the error'
+
+# A missing Compose plugin is reported as such even when the daemon is also
+# down, instead of first sending the participant to start Colima.
+variant no-compose docker 'exit 1'
+expect_failure 'docker compose' check_requirements no-compose
+if grep -Fq 'colima start' "$TASK_TMP/result"; then cat "$TASK_TMP/result"; exit 1; fi
+# Which of the two diagnoses applies depends on the host: common.sh always adds
+# Homebrew's bin to PATH, so a machine with the formula installed cannot be made
+# to look like one without it. Assert each wording only where it can apply.
+if bash -c 'source "$1/scripts/common.sh"; compose_binary >/dev/null' _ "$REPO"; then
+  grep -Fq 'not registered as a Docker CLI plugin' "$TASK_TMP/result"
+else
+  grep -Fq 'plugin is missing' "$TASK_TMP/result"
+fi
+echo 'PASS: missing compose plugin is diagnosed before the daemon'
+
+# Compose installed but never linked into ~/.docker/cli-plugins: the message
+# must say "register", not "install", and name docker-compose over docker-buildx.
+variant unregistered docker 'exit 1'
+variant unregistered docker-compose 'echo "Docker Compose version 5.5.1"'
+expect_failure 'not registered as a Docker CLI plugin' check_requirements unregistered
+grep -Fq 'docker-compose, not docker-buildx' "$TASK_TMP/result"
+# Advising an install here is what sent a participant in circles; guard it.
+if grep -Fq 'brew install docker-compose' "$TASK_TMP/result"; then cat "$TASK_TMP/result"; exit 1; fi
+echo 'PASS: installed-but-unregistered Compose is told to register, not install'
+
+# A credsStore pointing at an absent helper (uninstalled Docker Desktop) breaks
+# image pulls, but only when Docker reaches the registry -- so it warns and the
+# run must still succeed. check_requirements succeeding IS the assertion.
+mkdir -p "$TASK_TMP/dockercfg"
+printf '{"auths":{},"credsStore":"desktop"}\n' > "$TASK_TMP/dockercfg/config.json"
+DOCKER_CONFIG="$TASK_TMP/dockercfg" check_requirements none > "$TASK_TMP/creds" 2>&1
+grep -Fq 'docker-credential-desktop is not on PATH' "$TASK_TMP/creds"
+grep -Fq 'credsStore' "$TASK_TMP/creds"
+# A config without credsStore must stay silent.
+printf '{"auths":{},"currentContext":"colima"}\n' > "$TASK_TMP/dockercfg/config.json"
+DOCKER_CONFIG="$TASK_TMP/dockercfg" check_requirements none > "$TASK_TMP/creds-ok" 2>&1
+if grep -Fq 'credential helper' "$TASK_TMP/creds-ok"; then cat "$TASK_TMP/creds-ok"; exit 1; fi
+echo 'PASS: an orphaned credential helper warns without failing the run'
 
 expect_failure 'DATOMIC_DOWNLOAD=1' bash "$REPO/build.sh" </dev/null
 expect_failure 'Not a complete Datomic' env DATOMIC_HOME="$TASK_TMP/missing" DATOMIC_DOWNLOAD=1 bash "$REPO/build.sh"
@@ -205,6 +268,15 @@ grep -Fqx "DATOMIC_HOME='$ALT'" "$REPO/.env"
 export DATOMIC_HOME="$INSTALL"
 bash "$REPO/build.sh" >/dev/null
 echo 'PASS: positional path overrides .env and is recorded in it'
+
+# Build works with Docker stopped, and says to start it before ./start.sh.
+# shellcheck disable=SC2016 # the fixture's own $1, expanded when it runs
+variant daemon-down docker '[[ "$1" != info ]]'
+PATH="$TASK_TMP/variant-daemon-down:$PATH" bash "$REPO/build.sh" > "$TASK_TMP/build-down" 2>&1
+grep -Fq 'Docker is not running' "$TASK_TMP/build-down"
+bash "$REPO/build.sh" > "$TASK_TMP/build-up" 2>&1
+grep -Fq 'Build complete. Run ./start.sh.' "$TASK_TMP/build-up"
+echo 'PASS: build summary reflects whether Docker is running'
 
 expect_failure 'Port 9100 is in use' env PORT_CONFLICT=1 bash "$REPO/start.sh"
 [[ ! -d "$REPO/.run/active" ]]

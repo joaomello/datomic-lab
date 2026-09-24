@@ -1,169 +1,301 @@
-# Setup and troubleshooting
+# Troubleshooting
 
-The build and startup scripts report missing prerequisites before running the
-system. Configure tools yourself; neither script installs tools, switches
-Docker contexts, or starts a VM. Build can run while the container VM is stopped.
+Start with the [README](README.md). Come here when a step fails. The scripts
+report missing tools before running, but they never install anything, start a
+VM, or switch Docker contexts for you.
 
-## Docker Compose with Colima
+- [Install the prerequisites](#install-the-prerequisites): Java, Clojure, Docker Desktop or Colima
+- ["error getting credentials" when pulling images](#error-getting-credentials-when-pulling-images)
+- [A port is already in use](#a-port-is-already-in-use)
+- [Java or Clojure problems](#java-or-clojure-problems)
+- [Datomic download or installation](#datomic-download-or-installation)
+- [No metrics or logs in Grafana](#no-metrics-or-logs-in-grafana)
+- [The terminal was closed or killed](#the-terminal-was-closed-or-killed)
+- [Configuration reference](#configuration-reference)
 
-You need the Docker CLI, the Compose plugin (`docker compose`), and a running
-Colima Docker runtime. Installing Colima alone does not provide Compose.
-Configure tools using your usual package manager and shell environment.
-See the [Colima installation guide](https://colima.run/docs/installation/).
+## Install the prerequisites
+
+You need Java, the Clojure CLI, and Docker with Compose v2. Follow the steps
+for your system, then run the checks at the end.
+
+### macOS
+
+Install [Homebrew](https://brew.sh) if you don't have it, then install Java and
+Clojure:
 
 ```bash
-colima start
-colima status
-docker context ls
-docker context show
+brew install --cask temurin@21
+brew install clojure/tools/clojure
+```
+
+Then install **one** of these Docker options.
+
+#### Option A: Docker Desktop
+
+1. Download and install
+   [Docker Desktop for Mac](https://docs.docker.com/desktop/setup/install/mac-install/).
+   It includes Docker Compose.
+2. Open Docker Desktop and wait until it says the engine is running.
+
+#### Option B: Colima (free, no Docker Desktop)
+
+Colima runs Docker in a small VM. You need Colima, the Docker CLI, and the
+Compose plugin. Installing Colima alone isn't enough.
+
+```bash
+brew install colima docker docker-compose
+```
+
+Register Compose as a Docker plugin so that `docker compose` works:
+
+```bash
+mkdir -p ~/.docker/cli-plugins
+ln -sfn "$(brew --prefix)/opt/docker-compose/bin/docker-compose" ~/.docker/cli-plugins/docker-compose
+```
+
+The plugin must be named `docker-compose`. Linking `docker-buildx` instead is an
+easy slip: it is a separate plugin, also useful, that does not provide
+`docker compose`. Check the link landed:
+
+```bash
+ls -l ~/.docker/cli-plugins/   # expect a docker-compose entry
 docker compose version
-docker info
 ```
 
-For the default Colima profile, use `docker context use colima` if needed.
-Custom profiles have their own contexts. Exported `DOCKER_HOST` or
-`DOCKER_CONTEXT` can override the selected context. Docker Desktop also works
-when its engine is running.
+Instead of symlinking each plugin, you can point Docker at Homebrew's plugin
+directory once by adding `cliPluginsExtraDirs` to `~/.docker/config.json`, which
+is what `brew info docker-compose` suggests:
 
-On Apple Silicon, native ARM, Apple's virtualization framework, and VirtioFS
-are suitable settings. Measure with `docker stats` before increasing VM
-resources. Transactor and Console run on macOS and use memory independently
-of the Colima VM.
+```json
+{ "cliPluginsExtraDirs": ["/opt/homebrew/lib/docker/cli-plugins"] }
+```
 
-## Podman alternative
-
-If you don't use Docker, configure Podman and a Compose provider, then select
-it in `.env`:
+Start Colima with enough resources for the lab:
 
 ```bash
-DATOMIC_COMPOSE='podman compose'
+colima start --cpu 4 --memory 4
+docker context use colima
 ```
 
-On macOS, initialize and start your Podman machine as needed, then check
-`podman info` and `podman compose version`. Automatic provider selection
-prefers Docker Compose if both are available. Networking and bind mounts work
-the same way conceptually as Colima; see the sections above if containers
-can't reach the host or read the log directory.
+Colima doesn't start automatically after a reboot. Run `colima start` before
+each session, or `brew services start colima` to start it at login.
 
-## Compose requirements and ports
+If Docker Desktop is also installed, check that `docker context show` prints
+`colima`. An exported `DOCKER_HOST` or `DOCKER_CONTEXT` overrides the context.
 
-The stack uses the Compose Specification: named volumes, read-only bind mounts,
-environment interpolation, published ports, `depends_on`, and `host-gateway`
-host mapping. Build and startup validate Compose configuration.
+### Linux
 
-| Ports | Purpose |
-|-------|---------|
-| 4334, 4335 | Datomic dev storage |
+Install Java, `curl`, `unzip`, and `lsof` (Debian/Ubuntu shown):
+
+```bash
+sudo apt update
+sudo apt install -y openjdk-21-jdk curl unzip lsof
+```
+
+Install the Clojure CLI with the
+[official Linux instructions](https://clojure.org/guides/install_clojure#_linux_instructions).
+
+Install Docker Engine and the Compose plugin with
+[Docker's guide for your distribution](https://docs.docker.com/engine/install/).
+Make sure the `docker-compose-plugin` package is installed, then let your user
+run Docker without `sudo`:
+
+```bash
+sudo usermod -aG docker "$USER"
+```
+
+Log out and back in for the group change to apply.
+
+### Check everything
+
+```bash
+java -version            # 17, 21, or 25
+clojure -Sdescribe
+docker compose version   # v2.x
+docker info              # must show a running server
+docker run --rm hello-world
+```
+
+The old standalone `docker-compose` command isn't used; `docker compose` must
+work.
+
+## "error getting credentials" when pulling images
+
+`./start.sh` stops while pulling the observability images:
+
+```
+error getting credentials - err: exec: "docker-credential-desktop": executable file not found in $PATH, out: ``
+```
+
+Docker resolves registry credentials on every pull — including public images
+that need no login — by running `docker-credential-<store>`, where the store
+comes from `"credsStore"` in `~/.docker/config.json`. `docker-credential-desktop`
+ships with Docker Desktop, so the entry is a leftover from an uninstalled or
+half-installed Docker Desktop. Colima never writes a `credsStore` and doesn't
+need a helper at all.
+
+Remove the `"credsStore"` line from `~/.docker/config.json`. A working Colima
+config needs nothing more than:
+
+```json
+{ "auths": {}, "currentContext": "colima" }
+```
+
+If you do want a helper, install one and point `credsStore` at it instead:
+
+```bash
+brew install docker-credential-helper   # provides docker-credential-osxkeychain
+```
+
+`DOCKER_CONFIG` overrides the directory, so check `$DOCKER_CONFIG/config.json`
+if you have it set.
+
+## A port is already in use
+
+| Port | Used by |
+| --- | --- |
+| 4334, 4335 | Datomic transactor |
 | 9100 | Transactor metrics |
-| 8080 | Console (configurable) |
+| 9101 | Peer metrics (peer lab) |
+| 8080 | Datomic Console |
 | 3000, 9090, 3100 | Grafana, Prometheus, Loki |
 
-Startup checks local transactor and Console ports; Compose reports container
-port conflicts. A running manual transactor is not adopted or stopped.
+Find what's using a port:
 
 ```bash
-lsof -nP -iTCP:4334 -sTCP:LISTEN
 lsof -nP -iTCP:8080 -sTCP:LISTEN
 ```
 
-Stop the conflicting service yourself, or change the relevant configuration.
-For Console use `DATOMIC_CONSOLE_PORT=8081`. Changes to Datomic storage ports
-also require updating the transactor properties and `DATOMIC_URI`.
+Stop that process, or move Console to another port with
+`DATOMIC_CONSOLE_PORT=8081` in `.env`. The scripts don't stop or take over a
+transactor that you started by hand. If you change the transactor ports, you
+also have to update `config/transactor.properties` and `DATOMIC_URI`.
 
-Use one session at a time. Start/stop manages this project's Compose
-stack, so stop any manually managed observability session before using it.
+Run one lab session at a time.
 
-## Datomic selection and downloads
+## Java or Clojure problems
 
-`DATOMIC_HOME` must be an absolute path to an extracted Pro distribution with
-`bin/transactor`, `bin/console`, `lib/console`, and `VERSION`. An invalid configured
-path fails; it is not silently replaced by a download.
+Check `java -version` and `clojure -Sdescribe`. On macOS, `java` on your PATH
+can be a system stub that doesn't run Java. Set `JAVA_HOME` to a Java 17, 21,
+or 25 installation.
 
-When `DATOMIC_HOME` is set in neither the environment nor `.env`, build asks for
-a path or `download`, then writes the answer to `.env`. Use `DATOMIC_DOWNLOAD=1`
-for unattended download selection, or pass the path as `./build.sh /path`.
-Explicit environment values override `.env`, and build records the value it used
-so `.env` always describes the current setup.
-
-Downloads use the [official public ZIP](https://docs.datomic.com/setup/pro-setup.html).
-A failed transfer removes its partial file and retries from the beginning. An
-invalid cached ZIP produces an error; move that specific ZIP aside and retry.
-An archive that does not contain `datomic-pro-<version>/` is reported by name.
-Extraction does not overwrite an existing installation directory and leaves no
-staging directory behind if it fails.
-
-Build adds `lib/datomic-metrics-standalone.jar` to the selected installation.
-It preserves other configurations and databases. The transactor properties file
-(`config/transactor.properties` by default, or `DATOMIC_TRANSACTOR_CONFIG`) is
-read from where it already lives, not copied in — build only checks it exists.
-Stop users of that installation before rebuilding the exporter; use a separate
-installation for an independent lab.
-
-## Java, heap, and GC
-
-Check `java -version` and `clojure -Sdescribe`. A `java` command on PATH may
-only be an OS stub; the checks verify Java actually runs. Configure `JAVA_HOME`
-to select Java 17, 21, or 25.
-
-Use `DATOMIC_JAVA_OPTS` for the full transactor option list and
-`DATOMIC_CONSOLE_JAVA_OPTS` for Console. Keep each on one line without embedded
-quoting or shell expressions. Datomic replaces its default GC options when
-non-heap JVM arguments are supplied, so the lab defaults explicitly include G1.
-
-Global `JAVA_TOOL_OPTIONS` affects all JVMs and can conflict with GC choices.
-Inspect the startup log if Java rejects an option. Stop with Ctrl+C and restart
-to apply changes.
-
-## Missing metrics or logs
-
-During the session, inspect these from another terminal:
+**The build rejects Java, but `java -version` works in your terminal:** when
+`JAVA_HOME` is set, the scripts use `$JAVA_HOME/bin/java`, which can be a
+different Java than the one your terminal runs. The error says which one it
+checked. Compare:
 
 ```bash
+echo $JAVA_HOME
+"$JAVA_HOME/bin/java" -version
+```
+
+Fix it by unsetting `JAVA_HOME` in your shell profile, or by pointing it at a
+supported JDK: `export JAVA_HOME=$(/usr/libexec/java_home -v 21)` on macOS, or
+`sdk use java <version>` with SDKMAN. If `JAVA_HOME` points to a folder with no
+Java in it, the scripts print a warning and use the `java` on your PATH.
+
+A global `JAVA_TOOL_OPTIONS` applies to every JVM and can conflict with the
+lab's GC settings. If Java rejects an option, check `.run/transactor.log`.
+
+## Datomic download or installation
+
+- `./build.sh` downloads the
+  [official Datomic Pro ZIP](https://docs.datomic.com/setup/pro-setup.html)
+  into `./datomic-pro` and caches it in `.datomic/`.
+- To reuse an installation you already have:
+  `./build.sh /absolute/path/to/datomic-pro`.
+- To download without being asked: `DATOMIC_DOWNLOAD=1 ./build.sh`.
+- To download again from scratch: `DATOMIC_CLEAN=1 ./build.sh`.
+
+`DATOMIC_HOME` must be an absolute path to an extracted Pro distribution
+(`bin/transactor`, `bin/console`, `lib/console`, `VERSION`). If the path is
+invalid, the build fails; it doesn't fall back to downloading.
+
+If a cached ZIP is corrupt, move it out of `.datomic/` and run the build again.
+Failed downloads clean up after themselves.
+
+The build adds `lib/datomic-metrics-standalone.jar` to the installation. Your
+databases and other configuration stay untouched. Stop anything that is using
+that installation before you rebuild.
+
+## No metrics or logs in Grafana
+
+First, wait about a minute. The exporter starts on Datomic's first metrics
+callback. An empty **peer** dashboard is expected until you start the peer lab.
+
+Check from another terminal:
+
+```bash
+curl -s http://localhost:9100/metrics | head    # transactor metrics
 tail -f .run/transactor.log
 tail -f .run/console.log
 docker logs -f datomic-prometheus
 docker logs -f datomic-promtail
 ```
 
-Use `podman logs` when running Podman. After a failed startup the containers
-are removed; the JVM logs remain in `.run/`. Startup prints recent container
-logs before cleanup on failure.
+If startup fails, the containers are removed,
+but the JVM logs stay in `.run/` and startup prints the recent container logs.
 
-The exporter starts on Datomic's first metrics callback, which can take about
-a minute. `DATOMIC_START_TIMEOUT` defaults to 180 seconds for readiness.
-Startup checks service endpoints, the transactor scrape, and recent logs in
-Loki. An absent optional peer is expected.
+**Metrics work locally but Prometheus shows the target down**
+(<http://localhost:9090/targets>): the containers can't reach your host.
+Compose maps `host.containers.internal` to `host-gateway`, and the transactor
+is scraped through that name. This works on Docker Desktop and Colima. With
+another runtime, adjust the mapping and the Prometheus targets together.
 
-If local metrics work but Prometheus shows the transactor down at
-http://localhost:9090/targets, inspect container-to-host networking.
-Compose maps `host.containers.internal` to `host-gateway`; the destination
-depends on the runtime. Verify it reaches the macOS JVM, not just the container
-VM. This mapping works on the tested Colima setup. For another runtime, adjust
-the mapping and Prometheus targets together as needed.
+**No logs in Loki:** the repository and the Datomic log directory
+(`DATOMIC_LOG_PATH`, default `$DATOMIC_HOME/log`) must be visible to the
+container VM. Keeping the repository under your home directory usually handles
+that. Colima may need explicit mounts for other locations; see the
+[Colima FAQ](https://colima.run/docs/faq/). Also keep `-Duser.timezone=UTC` in
+the JVM options, because Promtail reads Datomic's timestamps as UTC.
 
-The project and `DATOMIC_LOG_PATH` must be shared with the container VM.
-Colima may need explicit mounts for directories outside your home directory:
-see the [Colima FAQ](https://colima.run/docs/faq/).
-`DATOMIC_LOG_PATH` selects the collected directory; it does not change where
-Datomic writes logs. Configure Datomic logging separately when moving its files.
+## The terminal was closed or killed
 
-Keep `-Duser.timezone=UTC` to match Promtail. If logs do not appear, verify
-current `.log` files in the mounted directory and inspect Promtail errors.
-Promtail is end of life; [migration to Alloy](https://grafana.com/docs/grafana-cloud/observe-and-act/send-data/alloy/set-up/migrate/from-promtail/)
-is a separate maintenance task.
+`Ctrl+C` stops everything cleanly and keeps your data. If the terminal was
+killed instead, run:
 
-## Shutdown or an interrupted terminal
+```bash
+./stop.sh
+```
 
-Ctrl+C stops the owned JVM children and runs Compose down, preserving databases
-and volumes. No stored PIDs are used to control later sessions.
+It stops the leftover processes and containers and clears the `.run/active`
+session marker. It never deletes data. If it can't clean up, look for leftover
+`java` processes and `datomic-*` containers and stop them yourself.
 
-A small `.run/active` directory prevents simultaneous sessions. The build script
-does not check this marker. If the terminal is forcibly killed, inspect remaining
-Java processes and containers and stop them yourself. Once no session is running,
-`./stop.sh` clears the stale marker, including its PID file, after successful
-shutdown and when the recorded session PID is no longer running. A normal exit
-clears it automatically.
+To run only the containers, use `./observability/start.sh` (this requires
+`DATOMIC_HOME` in `.env`). Its `down-v` command **deletes** the observability
+volumes.
 
-For containers only, `./observability/start.sh` remains available with an explicit
-`DATOMIC_HOME` in `.env`. Its `down-v` command discards observability volumes;
-normal shutdown does not.
+## Configuration reference
+
+`./build.sh` creates `.env` from [`.env.example`](.env.example) and records
+`DATOMIC_HOME` in it. Environment variables override `.env`.
+
+| Setting | Purpose |
+| --- | --- |
+| `DATOMIC_HOME` | Absolute path to a Datomic Pro installation |
+| `DATOMIC_VERSION` | Download version; default `1.0.7705` |
+| `DATOMIC_DOWNLOAD=1` | Download without being asked |
+| `DATOMIC_CLEAN=1` | Delete `./datomic-pro` and download again |
+| `DATOMIC_DOWNLOAD_DIR` | Where the ZIP is cached; default `.datomic/` |
+| `DATOMIC_TRANSACTOR_CONFIG` | Transactor properties file; default `config/transactor.properties` |
+| `DATOMIC_LOG_PATH` | Log directory that Promtail reads; default `$DATOMIC_HOME/log` |
+| `DATOMIC_CONSOLE_PORT` | Console port; default `8080` |
+| `DATOMIC_URI` | Console's transactor URI; default `datomic:dev://localhost:4334/` |
+| `DATOMIC_JAVA_OPTS` | Full transactor JVM options (replaces the defaults) |
+| `DATOMIC_CONSOLE_JAVA_OPTS` | Console JVM options |
+| `DATOMIC_START_TIMEOUT` | Readiness timeout in seconds; default `180` |
+
+Example:
+
+```bash
+DATOMIC_JAVA_OPTS='-Xms1g -Xmx2g -XX:+UseG1GC -XX:MaxGCPauseMillis=100 -Duser.timezone=UTC'
+```
+
+Keep each option list on one line, and always include `-Duser.timezone=UTC`.
+The scripts read `.env` as shell configuration, so don't put secrets in it.
+
+**Transactor settings:** edit
+[`config/transactor.properties`](config/transactor.properties), then run
+`./transactor-restart.sh`. This restarts only the transactor; you don't need to
+rebuild, and Console may need to reconnect.
