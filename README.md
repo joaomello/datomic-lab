@@ -61,11 +61,14 @@ metrics can take about a minute to appear.
 
 ## Try it
 
-1. In Console, create a database, for example `lab`.
-2. Define a small schema, transact a few entities, and query them.
+1. Follow the [peer lab](peer-lab/README.md) to start a Clojure REPL in a
+   separate terminal. Use its example to create the `lab` database, install
+   a small schema, transact an entity, and query it.
+2. Open Console and select the `lab` database to explore its schema, query
+   entities, and inspect transaction history. Console is for browsing and
+   querying; database creation and schema/data transactions use the Datomic
+   API through the peer REPL.
 3. Watch the transactor in Grafana under **Datomic → Transactor Metrics**.
-4. Want to write Clojure against it? Follow the
-   [peer lab](peer-lab/README.md).
 
 ## Stop
 
