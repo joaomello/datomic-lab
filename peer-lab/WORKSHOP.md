@@ -39,7 +39,7 @@ Dashboards are in Grafana at <http://localhost:3000>:
 log queries.
 
 The helpers in [lab.utils](src/lab/utils.clj) read the CSV files:
-`read-customers`, `read-accounts`, and `ledger-entries`. Each returns a map
+`read-customers`, `read-accounts`, and `read-ledger-entries`. Each returns a map
 with `:header` and `:rows`; each row is a map with keyword keys and string
 values. `parse-date` and `parse-decimal` can help convert those values for
 your schema.
@@ -136,7 +136,8 @@ Expected results: [c1.edn](resources/workshop/expected/c1.edn).
 Calculate each customer's total balance across all their accounts. Match
 customers to accounts using `customer_id`. An account's balance is the
 `balance_after` from its most recent entry by `posted_at`; if it has no
-entries, use `0.00`.
+entries, use `0.00`. If the latest timestamps tie, use the entry with the
+greatest `entry_id` (the last entry in statement order).
 
 Sum the account balances and return one row for every customer in
 `customers.csv`, ordered by `customer_id` ascending:
@@ -153,6 +154,7 @@ purchases. Include entries with `entry_type = "card"` and
 
 Group by merchant (`merchant_id`, `merchant_name`) and sum `amount`.
 Return `[merchant_id merchant_name total_amount]`, ordered by total spending
-from highest to lowest, keeping only the top 10.
+from highest to lowest, breaking ties by `merchant_id` and then `merchant_name`
+ascending, keeping only the top 10.
 
 Expected results: [c3.edn](resources/workshop/expected/c3.edn).
