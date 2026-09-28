@@ -43,15 +43,14 @@ callback:
 cp target/datomic-metrics-standalone.jar "$DATOMIC_HOME/lib/"
 ```
 
-The jar contains the exporter source and its Prometheus dependencies, but no
-Clojure runtime. This is intentional: Datomic supplies the Clojure runtime in
-its own installation, and bundling another copy would make classpath order
-significant. The build basis uses only the production dependencies; Clojure is
-declared only in the `:dev` alias and is combined with `:test` for local work.
+The jar contains the exporter compiled classes and its Prometheus dependencies,
+but no Clojure runtime. The build compiles the exporter ahead of time with
+`compile-clj`; Datomic loads those classes when it loads the callback namespace.
 
-Datomic compiles `lab.datomic-metrics` from the jar when it loads the callback
-namespace, so the exporter uses the Clojure version supplied by that Datomic
-installation.
+Datomic supplies the Clojure runtime from its own installation. The packaging
+basis excludes the Clojure CLI's root dependencies to avoid bundling another
+runtime. For local tests, the `:dev` alias declares Clojure and is combined with
+`:test`.
 
 ## Configure the callback
 

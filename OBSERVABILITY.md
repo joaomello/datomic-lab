@@ -82,7 +82,7 @@ the peer process's stdout, not to `$DATOMIC_LOG_PATH` where Promtail is looking.
 | File | Purpose |
 |------|---------|
 | `observability/docker-compose.yml` | All four services |
-| `observability/prometheus/prometheus.yml` | Scrapes the transactor (:9100) and the peer (:9101) every 5s |
+| `observability/prometheus/prometheus.yml` | Scrapes the transactor (:9100) and the peer (:9101) every 30s |
 | `observability/loki/loki-config.yml` | 30-day retention, filesystem storage |
 | `observability/promtail/promtail-config.yml` | Tails log/*.log, parses EDN, extracts labels |
 | `observability/grafana/dashboards/datomic-overview.json` | Auto-provisioned dashboard — transactor |
