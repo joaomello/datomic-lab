@@ -61,8 +61,8 @@ metrics can take about a minute to appear.
 
 ## Try it
 
-1. Follow the [peer lab](peer-lab/README.md) to start a Clojure REPL in a
-   separate terminal. Use its example to create the `lab` database, install
+1. Follow the [peer lab](peer-lab/README.md) to start a Clojure REPL.
+   Use its example to create the `lab` database, install
    a small schema, transact an entity, and query it.
 2. Open Console and select the `lab` database to explore its schema, query
    entities, and inspect transaction history. Console is for browsing and
